@@ -17,7 +17,7 @@ Este proyecto ha sido **concebido, diseñado y codificado íntegramente mediante
 ## 🚀 Características Principales
 
 - **Banco de Preguntas Oficial:** Cuestionarios extraídos directamente de los repertorios definitivos del SCS (categoría *Técnico/a Especialista en Radiodiagnóstico y Legislación Autonómica*).
-- **Aleatorización Eficiente:** Algoritmo de permutación **Fisher-Yates** aplicado tanto al orden de las preguntas como al de las opciones de respuesta, garantizando intentos únicos sin duplicados.
+- **Aleatorización del Orden de Preguntas:** Algoritmo de permutación **Fisher-Yates** aplicado al orden de las preguntas, garantizando intentos únicos sin duplicados. Las opciones de cada pregunta conservan el orden exacto definido en el banco oficial.
 - **Selector de Preguntas Personalizable:** Permite realizar simulacros de **25, 50, 100 preguntas** o la **totalidad del banco** disponible.
 - **Cronómetro de Alta Precisión:** Basado en marcas de tiempo (`Date.now()`), inmune a la suspensión o minimizado de pestañas en el navegador.
 - **Persistencia Local (`localStorage`):** Guarda automáticamente el avance del cuestionario en curso (recuperación ante recargas accidentales) y conserva un historial completo de simulacros anteriores.
