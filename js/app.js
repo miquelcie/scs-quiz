@@ -256,10 +256,9 @@ const startQuiz = (savedQuiz = null) => {
         const shuffledBank = shuffle(QUESTION_BANK);
         const actualCount = count === 'max' ? shuffledBank.length : Math.min(parseInt(count, 10), shuffledBank.length);
 
-        state.questions = shuffledBank.slice(0, actualCount).map(q => ({
-            ...q,
-            options: shuffle(q.options)
-        }));
+        // Las preguntas se barajan, pero las opciones conservan el orden
+        // exacto definido en QUESTION_BANK.
+        state.questions = shuffledBank.slice(0, actualCount).map(q => ({ ...q }));
         state.userAnswers = {};
         state.currentIndex = 0;
         state.accumulatedMs = 0;
