@@ -36,8 +36,12 @@ Al finalizar un cambio:
 index.html          # Única página; contiene las 4 "pantallas" y el modal global
 css/styles.css      # Todo el estilo (variables CSS, sin frameworks)
 js/app.js           # Punto de entrada (type="module"): estado, timer, render y eventos
+js/engine.js        # Lógica pura del examen (testeable con node --test)
 js/questions.js     # Banco de preguntas (export const QUESTION_BANK)
 js/storage.js       # Wrapper de localStorage (export const Storage)
+tests/cu-XX/        # Tests de los casos de uso esenciales
+tests/helpers/      # Fixtures y localStorage en memoria
+package.json        # Solo ESM + script de test; sin dependencias
 images/favicon.ico
 README.md           # Documentación de usuario
 AGENTS.md           # Esta guía (cómo trabajar en el repo)
@@ -47,7 +51,7 @@ docs/constitution.md # Constitución SDD: principios normativos del proyecto
 
 ## Ejecución
 
-No hay `package.json`, ni tests, ni linter, ni compilador. Para ejecutar:
+No hay build, linter ni dependencias externas. `package.json` existe solo para declarar `"type": "module"` y el script de test; no tiene `dependencies` ni `devDependencies`. Para ejecutar:
 
 ```bash
 # Opción recomendada (los módulos ES fallan con file:// por CORS)
@@ -59,6 +63,20 @@ npx serve .
 Luego abrir `http://localhost:8000`.
 
 `index.html` usa `<script type="module">`; abrirlo con doble clic (`file://`) provoca errores de CORS en la mayoría de navegadores.
+
+## Tests
+
+```bash
+npm test        # equivale a node --test
+node --test     # sin pasar por npm
+```
+
+- Se usa el runner nativo de Node (`node:test` + `node:assert/strict`); no se instala ninguna dependencia.
+- `tests/cu-XX/` agrupa un caso de uso esencial; `tests/helpers/` contiene fixtures y un `localStorage` en memoria.
+- La lógica testeable vive en `js/engine.js` (pura, sin DOM). No importar `js/app.js` en tests: registra `DOMContentLoaded` y usa `document`.
+- `js/storage.js` se testea inyectando `globalThis.localStorage` antes de cada test.
+- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial y CU-06 alias.
+- Los tests no sustituyen la verificación manual con Chrome DevTools.
 
 ## Arquitectura y convenciones
 
@@ -74,6 +92,12 @@ Luego abrir `http://localhost:8000`.
 - Las opciones del examen son accesibles por teclado: `role="radio"`, `tabindex="0"` y selección con `Enter`/`Espacio`. `renderQuestion(focusOptionIndex)` conserva el foco tras volver a renderizar.
 - El modal de confirmación es propio (`showModal(title, msg, onConfirm)` + `#custom-modal`); no usar `alert`/`confirm`/`prompt`. Gestiona `aria-hidden`, foco inicial, `Escape` y restauración del foco.
 - Comentarios y textos de UI **en español**.
+
+### `js/engine.js`
+
+- Lógica pura sin DOM ni almacenamiento: `shuffle`, `buildQuiz`, `toggleAnswer`, `buildActiveQuizSnapshot`, `scoreQuiz`, `createAttempt` y formateadores (`formatTime`, `formatPct`, `formatDate`, `escapeHTML`).
+- `shuffle()` y `buildQuiz()` aceptan un RNG opcional para tests deterministas; en producción usan `Math.random`.
+- No mover aquí estado global, render ni eventos: eso pertenece a `app.js`.
 
 ### `js/storage.js`
 
@@ -137,10 +161,11 @@ Reglas al añadir o editar preguntas:
 4. Cualquier HTML generado escapa el contenido del usuario.
 5. Interfaz y comentarios coherentes en español; sin cambios de formato ajenos al objetivo.
 6. `MEMORY.md` actualizado: estado, decisiones o trampas nuevas y entrada en la bitácora.
-7. No hay tests automáticos. Después de cada cambio, verifica con el MCP de Chrome DevTools: abre `index.html`, prueba la funcionalidad, revisa la consola y comprueba la vista móvil. 
+7. `npm test` en verde y verificación manual con el MCP de Chrome DevTools: abre `index.html`, prueba la funcionalidad, revisa la consola y comprueba la vista móvil (375 px).
 
 ## Comandos
-- Tests: `node --test`
+- Tests: `npm test` (o `node --test`)
+- Servidor local: `python -m http.server 8000`
 
 ## Reglas
 - Lee `docs/constitution.md` y la spec activa (`specs/NNN-*/`) antes de tocar código. 
