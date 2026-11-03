@@ -1,27 +1,15 @@
 import { QUESTION_BANK } from './questions.js';
 import { Storage } from './storage.js';
-
-// --- UTILIDADES ---
-const shuffle = (array) => {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-};
-
-const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
-    const pad = n => String(n).padStart(2, '0');
-    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-};
-
-const formatPct = value => `${value.toFixed(2).replace('.', ',')} %`;
-
-const formatDate = iso => new Date(iso).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
-
-const escapeHTML = str => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+import {
+    buildActiveQuizSnapshot,
+    buildQuiz,
+    createAttempt,
+    escapeHTML,
+    formatDate,
+    formatPct,
+    formatTime,
+    toggleAnswer
+} from './engine.js';
 
 // --- ESTADO Y TIMER ---
 const state = {
@@ -54,12 +42,12 @@ const stopTimer = () => {
 };
 
 const persistActiveQuiz = () => {
-    Storage.setActiveQuiz({
+    Storage.setActiveQuiz(buildActiveQuizSnapshot({
         questions: state.questions,
         userAnswers: state.userAnswers,
         currentIndex: state.currentIndex,
         accumulatedMs: state.accumulatedMs + (state.timerInterval ? Date.now() - state.startTimestamp : 0)
-    });
+    }));
 };
 
 // --- NAVEGACIÓN Y MODAL ---
@@ -135,21 +123,20 @@ const renderQuestion = (focusOptionIndex = null) => {
             <div class="option-text">${escapeHTML(opt.text)}</div>
         `;
 
-        const toggleAnswer = () => {
-            if (state.userAnswers[q.id] === opt.id) delete state.userAnswers[q.id];
-            else state.userAnswers[q.id] = opt.id;
+        const selectAnswer = () => {
+            toggleAnswer(state.userAnswers, q.id, opt.id);
             persistActiveQuiz();
         };
 
         item.addEventListener('click', () => {
-            toggleAnswer();
+            selectAnswer();
             renderQuestion();
         });
 
         item.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                toggleAnswer();
+                selectAnswer();
                 renderQuestion(idx);
             }
         });
@@ -311,12 +298,10 @@ const startQuiz = (savedQuiz = null) => {
         state.accumulatedMs = savedQuiz.accumulatedMs || 0;
     } else {
         const count = document.getElementById('num-questions-select').value;
-        const shuffledBank = shuffle(QUESTION_BANK);
-        const actualCount = count === 'max' ? shuffledBank.length : Math.min(parseInt(count, 10), shuffledBank.length);
 
         // Las preguntas se barajan, pero las opciones conservan el orden
         // exacto definido en QUESTION_BANK.
-        state.questions = shuffledBank.slice(0, actualCount).map(q => ({ ...q }));
+        state.questions = buildQuiz(QUESTION_BANK, count);
         state.userAnswers = {};
         state.currentIndex = 0;
         state.accumulatedMs = 0;
@@ -337,27 +322,13 @@ const finishQuiz = () => {
     const processFinish = () => {
         stopTimer();
         Storage.clearActiveQuiz();
-        const totalSec = Math.floor(state.accumulatedMs / 1000);
 
-        let hits = 0, errors = 0, unanswered = 0;
-        state.questions.forEach(q => {
-            const ans = state.userAnswers[q.id];
-            if (!ans) unanswered++;
-            else if (ans === q.correctOption) hits++;
-            else errors++;
+        const attempt = createAttempt({
+            questions: state.questions,
+            userAnswers: state.userAnswers,
+            alias: state.alias,
+            totalTimeSeconds: Math.floor(state.accumulatedMs / 1000)
         });
-
-        const attempt = {
-            id: 'att_' + Date.now(),
-            date: new Date().toISOString(),
-            candidateAlias: state.alias.trim() || 'Aspirante',
-            totalQuestions: total,
-            hits, errors, unanswered,
-            scorePct: (hits / total) * 100,
-            totalTimeSeconds: totalSec,
-            questionsSnapshot: state.questions,
-            userAnswersSnapshot: state.userAnswers
-        };
 
         Storage.saveAttempt(attempt);
         renderResults(attempt);
