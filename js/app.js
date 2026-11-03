@@ -8,6 +8,8 @@ import {
     formatDate,
     formatPct,
     formatTime,
+    isQuizInProgress,
+    moveIndex,
     toggleAnswer
 } from './engine.js';
 
@@ -41,13 +43,30 @@ const stopTimer = () => {
     }
 };
 
-const persistActiveQuiz = () => {
+const saveActiveQuizNow = () => {
     Storage.setActiveQuiz(buildActiveQuizSnapshot({
         questions: state.questions,
         userAnswers: state.userAnswers,
         currentIndex: state.currentIndex,
         accumulatedMs: state.accumulatedMs + (state.timerInterval ? Date.now() - state.startTimestamp : 0)
     }));
+};
+
+// Guarda solo si el examen sigue activo: pantalla de cuestionario y cuestionario cargado.
+const persistActiveQuiz = () => {
+    const quizScreen = document.getElementById('screen-quiz');
+    if (!quizScreen?.classList.contains('active')) return;
+    if (!isQuizInProgress(state.questions, state.currentIndex)) return;
+    saveActiveQuizNow();
+};
+
+const navigate = delta => {
+    const nextIndex = moveIndex(state.currentIndex, state.questions.length, delta);
+    if (nextIndex === state.currentIndex) return;
+
+    state.currentIndex = nextIndex;
+    persistActiveQuiz();
+    renderQuestion();
 };
 
 // --- NAVEGACIÓN Y MODAL ---
@@ -294,7 +313,11 @@ const startQuiz = (savedQuiz = null) => {
     if (savedQuiz) {
         state.questions = savedQuiz.questions;
         state.userAnswers = savedQuiz.userAnswers || {};
-        state.currentIndex = savedQuiz.currentIndex || 0;
+        state.currentIndex = moveIndex(
+            savedQuiz.currentIndex ?? 0,
+            Array.isArray(savedQuiz.questions) ? savedQuiz.questions.length : 0,
+            0
+        );
         state.accumulatedMs = savedQuiz.accumulatedMs || 0;
     } else {
         const count = document.getElementById('num-questions-select').value;
@@ -305,7 +328,7 @@ const startQuiz = (savedQuiz = null) => {
         state.userAnswers = {};
         state.currentIndex = 0;
         state.accumulatedMs = 0;
-        persistActiveQuiz();
+        saveActiveQuizNow();
     }
 
     document.getElementById('recovery-banner').hidden = true;
@@ -372,14 +395,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('btn-prev-q').addEventListener('click', () => {
-        if (state.currentIndex > 0) { state.currentIndex--; renderQuestion(); }
-    });
+    document.getElementById('btn-prev-q').addEventListener('click', () => navigate(-1));
 
     document.getElementById('btn-next-q').addEventListener('click', () => {
-        if (state.currentIndex < state.questions.length - 1) { state.currentIndex++; renderQuestion(); }
+        if (state.currentIndex < state.questions.length - 1) navigate(1);
         else finishQuiz();
     });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) persistActiveQuiz();
+    });
+    window.addEventListener('pagehide', persistActiveQuiz);
 
     document.getElementById('btn-finish-quiz').addEventListener('click', finishQuiz);
     document.getElementById('btn-restart-from-res').addEventListener('click', () => switchScreen('home'));

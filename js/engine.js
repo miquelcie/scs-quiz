@@ -37,6 +37,24 @@ export const buildActiveQuizSnapshot = ({ questions, userAnswers, currentIndex, 
     accumulatedMs
 });
 
+// Calcula el índice destino con límites. Un `delta` 0 recorta un índice guardado.
+export const moveIndex = (currentIndex, total, delta) => {
+    const length = Number.isInteger(total) && total > 0 ? total : 0;
+    if (length === 0) return 0;
+
+    const step = Number.isInteger(delta) ? delta : 0;
+    const current = Number.isInteger(currentIndex) ? currentIndex : 0;
+    return Math.min(Math.max(current + step, 0), length - 1);
+};
+
+// Verdadero solo si hay un cuestionario y el índice es un entero dentro de rango.
+export const isQuizInProgress = (questions, currentIndex) =>
+    Array.isArray(questions) &&
+    questions.length > 0 &&
+    Number.isInteger(currentIndex) &&
+    currentIndex >= 0 &&
+    currentIndex < questions.length;
+
 // Corrección del cuestionario.
 export const scoreQuiz = (questions, answers) => {
     let hits = 0;
