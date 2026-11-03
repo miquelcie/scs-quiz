@@ -12,7 +12,7 @@ SPA de simulación de exámenes tipo test para las oposiciones del **Servicio Ca
 
 ## Documentos del proyecto
 
-- `constitution.md` — **normativo**: principios no negociables (SDD). Toda especificación, plan, tarea o cambio debe ser conforme a él.
+- `docs/constitution.md` — **normativo**: principios no negociables (SDD). Toda especificación, plan, tarea o cambio debe ser conforme a él.
 - `AGENTS.md` — convenciones operativas para agentes.
 - `MEMORY.md` — estado y conocimiento acumulado.
 
@@ -42,7 +42,7 @@ images/favicon.ico
 README.md           # Documentación de usuario
 AGENTS.md           # Esta guía (cómo trabajar en el repo)
 MEMORY.md           # Memoria viva del proyecto (estado, decisiones, deuda técnica)
-constitution.md     # Constitución SDD: principios normativos del proyecto
+docs/constitution.md # Constitución SDD: principios normativos del proyecto
 ```
 
 ## Ejecución
@@ -71,7 +71,8 @@ Luego abrir `http://localhost:8000`.
 - El cronómetro se basa en `Date.now()` (no en contar *ticks*) para sobrevivir a la suspensión de la pestaña. `accumulatedMs` guarda el tiempo de tramos anteriores.
 - Cada respuesta llama a `persistActiveQuiz()` para permitir la recuperación tras una recarga.
 - `startQuiz()` baraja **solo el orden de las preguntas**. Las opciones de cada pregunta conservan el orden exacto de `questions.js`: no aplicar `shuffle` a `q.options`.
-- El modal de confirmación es propio (`showModal(title, msg, onConfirm)` + `#custom-modal`); no usar `alert`/`confirm`/`prompt`.
+- Las opciones del examen son accesibles por teclado: `role="radio"`, `tabindex="0"` y selección con `Enter`/`Espacio`. `renderQuestion(focusOptionIndex)` conserva el foco tras volver a renderizar.
+- El modal de confirmación es propio (`showModal(title, msg, onConfirm)` + `#custom-modal`); no usar `alert`/`confirm`/`prompt`. Gestiona `aria-hidden`, foco inicial, `Escape` y restauración del foco.
 - Comentarios y textos de UI **en español**.
 
 ### `js/storage.js`
@@ -116,11 +117,11 @@ Reglas al añadir o editar preguntas:
 
 ### `css/styles.css`
 
-- Tema institucional mediante variables en `:root` (`--scs-blue`, `--scs-yellow`, `--success`, `--danger`, `--warning`, radios, sombras).
+- Tema «expediente de examen»: variables en `:root` para azules (`--azul-noche`, `--azul-sello`, `--azul-trazo`, `--azul-cielo`), papel/tinta (`--papel`, `--azul-papel`, `--tinta`, `--tinta-suave`, `--filete`) y corrección (`--acierto`, `--error`, `--pendiente`). Tipografías: `--fuente-titulo` (serif documental) y `--fuente-texto` (interfaz).
 - Usar las variables existentes en lugar de colores literales nuevos.
-- Clases de botón: `.btn` + `.btn-primary` / `.btn-accent` / `.btn-secondary` / `.btn-danger`, y `.btn-sm`, `.w-full`.
-- Responsive con `@media (min-width: 768px)` y CSS Grid/Flexbox. Sin dependencias externas.
-- Evitar estilos inline nuevos en el HTML; los existentes son deuda técnica heredada.
+- Clases de botón: `.btn` + `.btn-primary` / `.btn-accent` / `.btn-secondary` / `.btn-danger`, y `.btn-sm`, `.btn-lg`, `.w-full`.
+- Responsive con `@media (min-width: 768px)` y `@media (max-width: 599px)`, CSS Grid/Flexbox. Sin dependencias externas ni fuentes remotas.
+- No reintroducir estilos inline ni emojis decorativos en la interfaz; la jerarquía se resuelve con clases del tema.
 
 ## Seguridad
 
@@ -136,6 +137,13 @@ Reglas al añadir o editar preguntas:
 4. Cualquier HTML generado escapa el contenido del usuario.
 5. Interfaz y comentarios coherentes en español; sin cambios de formato ajenos al objetivo.
 6. `MEMORY.md` actualizado: estado, decisiones o trampas nuevas y entrada en la bitácora.
+7. No hay tests automáticos. Después de cada cambio, verifica con el MCP de Chrome DevTools: abre `index.html`, prueba la funcionalidad, revisa la consola y comprueba la vista móvil. 
+
+## Comandos
+- Tests: `node --test`
+
+## Reglas
+- Lee `docs/constitution.md` y la spec activa (`specs/NNN-*/`) antes de tocar código. 
 
 ## Notas / trampas conocidas
 

@@ -1,0 +1,5 @@
+# Herramientas locales de agentes
+.opencode/
+.agents/
+opencode.json
+skills-lock.json
