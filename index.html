@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#072A47">
     <title>Test Oposiciones SCS - Servicio Canario de Salud</title>
     <link rel="stylesheet" href="css/styles.css">
-	<link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
 </head>
 <body>
 
@@ -15,166 +16,190 @@
                 <div class="logo-badge" aria-hidden="true">SCS</div>
                 <div class="header-title">
                     <h1>Oposiciones Servicio Canario de Salud</h1>
-                    <p>Simulador Oficial de Exámenes de Estabilización</p>
+                    <p>Simulador de examen para Técnico/a Especialista en Radiodiagnóstico</p>
                 </div>
             </div>
             <div class="user-tag">
-                👤 <span id="display-alias">Aspirante</span>
+                <span class="user-tag-label">Aspirante</span>
+                <span id="display-alias">Aspirante</span>
             </div>
         </div>
     </header>
 
     <main>
-        <div id="recovery-banner" class="alert-banner" style="display: none;" role="alert">
+        <div id="recovery-banner" class="alert-banner" role="alert" hidden>
             <div>
-                <strong>⚠️ Cuestionario interrumpido detectado</strong>
-                <p style="font-size: 0.85rem; color: #92400E;" id="recovery-info">Tienes un examen en curso guardado localmente.</p>
+                <strong>Cuestionario sin terminar</strong>
+                <p class="alert-text" id="recovery-info">Tienes un examen en curso guardado en este navegador.</p>
             </div>
-            <div style="display: flex; gap: 8px;">
-                <button class="btn btn-accent btn-sm" id="btn-resume-quiz">Continuar Examen</button>
+            <div class="alert-actions">
+                <button class="btn btn-primary btn-sm" id="btn-resume-quiz">Continuar examen</button>
                 <button class="btn btn-secondary btn-sm" id="btn-discard-quiz">Descartar</button>
             </div>
         </div>
 
         <!-- 1. PANTALLA PRINCIPAL -->
         <section id="screen-home" class="screen active" aria-label="Menú principal">
+            <div class="hero">
+                <div class="hero-copy">
+                    <h2 class="hero-title">Técnico/a Especialista en Radiodiagnóstico</h2>
+                    <p class="hero-lede">Simulacros con preguntas del repertorio oficial, corrección al instante y seguimiento de tus intentos. Todo se ejecuta en este navegador.</p>
+                </div>
+                <dl class="hero-facts">
+                    <div>
+                        <dt>Banco</dt>
+                        <dd id="hero-bank">Preguntas verificadas</dd>
+                    </div>
+                    <div>
+                        <dt>Duración</dt>
+                        <dd>Sin límite de tiempo</dd>
+                    </div>
+                    <div>
+                        <dt>Datos</dt>
+                        <dd>Solo en este navegador</dd>
+                    </div>
+                </dl>
+            </div>
+
             <div class="grid-home">
-                <div>
+                <div class="grid-main">
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">⚙️ Configurar Nuevo Cuestionario</h2>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label" for="input-alias">Alias o Nombre del Aspirante (Opcional):</label>
-                            <input type="text" id="input-alias" class="form-input" placeholder="Ej: María Rodríguez" maxlength="30">
+                            <h2 class="card-title">Configurar simulacro</h2>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="num-questions-select">Número de preguntas para este test:</label>
+                            <label class="form-label" for="input-alias">Alias o nombre <span class="form-optional">(opcional)</span></label>
+                            <input type="text" id="input-alias" class="form-input" placeholder="Ej.: María Rodríguez" maxlength="30">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="num-questions-select">Número de preguntas</label>
                             <select id="num-questions-select" class="form-select">
-                                <option value="25" selected>25 Preguntas</option>
-                                <option value="50">50 Preguntas</option>
-                                <option value="100">100 Preguntas</option>
+                                <option value="25" selected>25 preguntas</option>
+                                <option value="50">50 preguntas</option>
+                                <option value="100">100 preguntas</option>
                                 <option value="max">Todas las disponibles</option>
                             </select>
-                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;" id="available-info">
-                                Cargando banco de preguntas...
-                            </p>
+                            <p class="form-hint" id="available-info">Cargando banco de preguntas...</p>
                         </div>
 
-                        <button id="btn-start-quiz" class="btn btn-primary w-full" style="padding: 0.85rem; margin-top: 0.5rem;">
-                            🚀 Comienza el Simulacro
+                        <button id="btn-start-quiz" class="btn btn-primary btn-lg w-full">
+                            Comenzar simulacro
                         </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">📜 Normativa y Contenido</h2>
+                            <h2 class="card-title">Cómo funciona</h2>
                         </div>
-                        <p style="font-size: 0.88rem; margin-bottom: 0.75rem;">
-                            Cuestionarios elaborados a partir de las convocatorias y repertorios oficiales de exámenes de la Dirección General de Recursos Humanos del <strong>Servicio Canario de Salud (SCS)</strong>.
+                        <p class="card-lede">
+                            Los cuestionarios se elaboran a partir de las convocatorias y repertorios oficiales de la Dirección General de Recursos Humanos del <strong>Servicio Canario de Salud</strong>.
                         </p>
-                        <ul style="font-size: 0.85rem; color: var(--text-muted); padding-left: 1.2rem; line-height: 1.6;">
-                            <li>Aleatorización del orden de las preguntas; las opciones conservan el orden oficial.</li>
-                            <li>Cronómetro insensible a la suspensión de pestaña.</li>
-                            <li>Corrección automática y desglose explicativo al finalizar.</li>
-                            <li>Privacidad absoluta: 100% ejecutable localmente sin servidores externos.</li>
+                        <ul class="plain-list">
+                            <li>Cada intento baraja el orden de las preguntas; las opciones mantienen el orden del repertorio.</li>
+                            <li>El cronómetro sigue contando aunque cambies de pestaña.</li>
+                            <li>Si cierras la página, podrás retomar el examen donde lo dejaste.</li>
+                            <li>El historial se guarda en este navegador. No se envía nada a ningún servidor.</li>
                         </ul>
                     </div>
                 </div>
 
-                <div>
+                <aside class="grid-side">
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">📊 Último Resultado</h2>
+                            <h2 class="card-title">Último resultado</h2>
                         </div>
                         <div id="last-attempt-content">
-                            <p style="font-size:0.85rem; color:var(--text-muted);">No hay simulacros completados todavía.</p>
+                            <p class="empty-state">Todavía no has completado ningún simulacro. Cuando termines el primero, aquí verás tu nota.</p>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">💾 Memoria Local</h2>
+                            <h2 class="card-title">Historial de intentos</h2>
                         </div>
-                        <button id="btn-view-history" class="btn btn-secondary w-full" style="margin-bottom: 8px;">
-                            📋 Historial de Intentos
-                        </button>
-                        <button id="btn-clear-history" class="btn btn-danger btn-sm w-full">
-                            🗑️ Borrar Historial Local
-                        </button>
+                        <div class="stack">
+                            <button id="btn-view-history" class="btn btn-secondary w-full">
+                                Ver historial completo
+                            </button>
+                            <button id="btn-clear-history" class="btn btn-danger w-full">
+                                Borrar historial
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </aside>
             </div>
         </section>
 
         <!-- 2. PANTALLA CUESTIONARIO -->
         <section id="screen-quiz" class="screen" aria-label="Examen en curso">
-            <div class="quiz-header">
-                <div>
-                    <span style="font-weight: 700; font-size: 0.95rem;">Pregunta <span id="q-current">1</span> de <span id="q-total">25</span></span>
-                    <div class="progress-bar-bg" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+            <div class="quiz-bar">
+                <div class="quiz-progress">
+                    <span class="quiz-count" aria-live="polite">Pregunta <strong id="q-current">1</strong> de <strong id="q-total">25</strong></span>
+                    <div class="progress-bar-bg" id="progress-bar-bg" role="progressbar" aria-label="Progreso del examen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                         <div id="progress-bar-fill" class="progress-bar-fill"></div>
                     </div>
                 </div>
-                <div class="timer-badge">
-                    ⏱️ <span id="quiz-timer">00:00:00</span>
-                </div>
-                <div>
-                    <button id="btn-finish-quiz" class="btn btn-accent btn-sm">Finalizar Test</button>
+                <div class="quiz-tools">
+                    <div class="timer-badge">
+                        <span class="timer-label">Tiempo</span>
+                        <span id="quiz-timer">00:00</span>
+                    </div>
+                    <button id="btn-finish-quiz" class="btn btn-accent btn-sm">Finalizar test</button>
                 </div>
             </div>
 
             <article class="question-card">
-                <div id="question-statement" class="question-statement">Cargando enunciado...</div>
-                <div id="options-container" class="options-list"></div>
+                <div class="question-folio" aria-hidden="true"><span id="q-folio">1</span></div>
+                <div class="question-body">
+                    <p class="question-instruction">Marca una sola opción. Puedes cambiarla antes de finalizar.</p>
+                    <div id="question-statement" class="question-statement">Cargando enunciado...</div>
+                    <div id="options-container" class="options-list" role="radiogroup" aria-label="Opciones de respuesta"></div>
+                </div>
             </article>
 
             <div class="quiz-nav">
-                <button id="btn-prev-q" class="btn btn-secondary">⬅️ Anterior</button>
-                <button id="btn-next-q" class="btn btn-primary">Siguiente ➡️</button>
+                <button id="btn-prev-q" class="btn btn-secondary">Anterior</button>
+                <button id="btn-next-q" class="btn btn-primary">Siguiente</button>
             </div>
         </section>
 
         <!-- 3. PANTALLA RESULTADOS -->
         <section id="screen-results" class="screen" aria-label="Resultados del examen">
-            <div class="card" style="text-align: center;">
-                <h2 style="font-size: 1.5rem; color: var(--scs-blue); margin-bottom: 0.3rem;">Simulacro Finalizado</h2>
-                <p id="results-candidate" style="color: var(--text-muted); font-size: 0.9rem;">Aspirante: -</p>
+            <div class="results-head">
+                <p class="results-label">Resultado del simulacro</p>
+                <div id="res-score-pct" class="results-score">0,00 %</div>
+                <p id="results-candidate" class="results-meta">Aspirante: -</p>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div id="res-score-pct" class="stat-val">0.00%</div>
-                    <div class="stat-lbl">% Aciertos Total</div>
-                </div>
-                <div class="stat-card">
-                    <div id="res-hits" class="stat-val" style="color: var(--success);">0</div>
+                    <div id="res-hits" class="stat-val is-success">0</div>
                     <div class="stat-lbl">Aciertos</div>
                 </div>
                 <div class="stat-card">
-                    <div id="res-errors" class="stat-val" style="color: var(--danger);">0</div>
+                    <div id="res-errors" class="stat-val is-danger">0</div>
                     <div class="stat-lbl">Errores</div>
                 </div>
                 <div class="stat-card">
-                    <div id="res-blank" class="stat-val" style="color: var(--warning);">0</div>
+                    <div id="res-blank" class="stat-val is-warning">0</div>
                     <div class="stat-lbl">Sin responder</div>
                 </div>
                 <div class="stat-card">
                     <div id="res-time-total" class="stat-val">00:00</div>
-                    <div class="stat-lbl">Tiempo Total</div>
+                    <div class="stat-lbl">Tiempo total</div>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
-                <button id="btn-restart-from-res" class="btn btn-primary" style="flex:1;">🔄 Nuevo Test</button>
-                <button id="btn-home-from-res" class="btn btn-secondary" style="flex:1;">🏠 Menú Principal</button>
+            <div class="actions-row">
+                <button id="btn-restart-from-res" class="btn btn-primary">Configurar otro test</button>
+                <button id="btn-home-from-res" class="btn btn-secondary">Volver al inicio</button>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">📖 Corrección Detallada</h2>
+                    <h2 class="card-title">Corrección detallada</h2>
                 </div>
                 <div id="review-container"></div>
             </div>
@@ -184,8 +209,8 @@
         <section id="screen-history" class="screen" aria-label="Historial de exámenes">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">📋 Historial de Intentos Guardados</h2>
-                    <button id="btn-back-home-history" class="btn btn-secondary btn-sm">⬅️ Volver</button>
+                    <h2 class="card-title">Historial de intentos</h2>
+                    <button id="btn-back-home-history" class="btn btn-secondary btn-sm">Volver al inicio</button>
                 </div>
                 <div id="history-list-container"></div>
             </div>
@@ -193,7 +218,7 @@
     </main>
 
     <footer>
-        <p>Aplicación de Test Oposiciones SCS | Codificación UTF-8 Nativa | Sin conexión a servidores externos</p>
+        <p>Simulador de examen SCS. Funciona sin conexión y guarda tus datos solo en este navegador.</p>
     </footer>
 
     <div id="custom-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">

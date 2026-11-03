@@ -17,6 +17,10 @@ const formatTime = (seconds) => {
     return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 };
 
+const formatPct = value => `${value.toFixed(2).replace('.', ',')} %`;
+
+const formatDate = iso => new Date(iso).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+
 const escapeHTML = str => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // --- ESTADO Y TIMER ---
@@ -67,65 +71,107 @@ const switchScreen = screenId => {
 
 const showModal = (title, msg, onConfirm) => {
     const modal = document.getElementById('custom-modal');
+    const btnConfirm = document.getElementById('modal-confirm');
+    const btnCancel = document.getElementById('modal-cancel');
+    const previouslyFocused = document.activeElement;
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-msg').textContent = msg;
 
-    const cleanup = () => {
+    const cleanup = (restoreFocus = true) => {
         modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
         btnConfirm.removeEventListener('click', handleConfirm);
         btnCancel.removeEventListener('click', cleanup);
+        modal.removeEventListener('keydown', handleKeydown);
+        if (restoreFocus) previouslyFocused?.focus?.();
     };
 
-    const handleConfirm = () => { cleanup(); onConfirm(); };
-    const btnConfirm = document.getElementById('modal-confirm');
-    const btnCancel = document.getElementById('modal-cancel');
+    const handleConfirm = () => {
+        cleanup(false);
+        onConfirm();
+    };
+
+    const handleKeydown = e => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            cleanup();
+        }
+    };
 
     btnConfirm.addEventListener('click', handleConfirm);
     btnCancel.addEventListener('click', cleanup);
+    modal.addEventListener('keydown', handleKeydown);
     modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    btnConfirm.focus();
 };
 
 // --- RENDERIZADO DE VISTAS ---
-const renderQuestion = () => {
+const renderQuestion = (focusOptionIndex = null) => {
     const q = state.questions[state.currentIndex];
     const total = state.questions.length;
+    const progress = Math.round(((state.currentIndex + 1) / total) * 100);
 
     document.getElementById('q-current').textContent = state.currentIndex + 1;
     document.getElementById('q-total').textContent = total;
-    document.getElementById('progress-bar-fill').style.width = `${((state.currentIndex + 1) / total) * 100}%`;
-    document.getElementById('question-statement').textContent = `${state.currentIndex + 1}. ${q.statement}`;
+    document.getElementById('q-folio').textContent = state.currentIndex + 1;
+    document.getElementById('progress-bar-fill').style.width = `${progress}%`;
+    document.getElementById('progress-bar-bg').setAttribute('aria-valuenow', progress);
+    document.getElementById('question-statement').textContent = q.statement;
 
     const container = document.getElementById('options-container');
     const fragment = document.createDocumentFragment();
     const prefixes = ['A', 'B', 'C', 'D', 'E'];
 
     q.options.forEach((opt, idx) => {
+        const isSelected = state.userAnswers[q.id] === opt.id;
         const item = document.createElement('div');
-        item.className = `option-item ${state.userAnswers[q.id] === opt.id ? 'selected' : ''}`;
+        item.className = `option-item ${isSelected ? 'selected' : ''}`;
+        item.tabIndex = 0;
+        item.setAttribute('role', 'radio');
+        item.setAttribute('aria-checked', String(isSelected));
         item.innerHTML = `
             <div class="option-prefix">${prefixes[idx] || idx + 1}</div>
             <div class="option-text">${escapeHTML(opt.text)}</div>
         `;
-        item.addEventListener('click', () => {
+
+        const toggleAnswer = () => {
             if (state.userAnswers[q.id] === opt.id) delete state.userAnswers[q.id];
             else state.userAnswers[q.id] = opt.id;
             persistActiveQuiz();
+        };
+
+        item.addEventListener('click', () => {
+            toggleAnswer();
             renderQuestion();
         });
+
+        item.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleAnswer();
+                renderQuestion(idx);
+            }
+        });
+
         fragment.appendChild(item);
     });
 
     container.innerHTML = '';
     container.appendChild(fragment);
 
+    if (focusOptionIndex !== null) {
+        container.children[focusOptionIndex]?.focus();
+    }
+
     document.getElementById('btn-prev-q').disabled = state.currentIndex === 0;
-    document.getElementById('btn-next-q').textContent = state.currentIndex === total - 1 ? 'Finalizar Test 🏁' : 'Siguiente ➡️';
+    document.getElementById('btn-next-q').textContent = state.currentIndex === total - 1 ? 'Finalizar test' : 'Siguiente';
 };
 
 const renderResults = (attempt) => {
     switchScreen('results');
-    document.getElementById('results-candidate').textContent = `Aspirante: ${attempt.candidateAlias} | Fecha: ${new Date(attempt.date).toLocaleString()}`;
-    document.getElementById('res-score-pct').textContent = `${attempt.scorePct.toFixed(2)}%`;
+    document.getElementById('results-candidate').textContent = `Aspirante: ${attempt.candidateAlias}. ${formatDate(attempt.date)}`;
+    document.getElementById('res-score-pct').textContent = formatPct(attempt.scorePct);
     document.getElementById('res-hits').textContent = attempt.hits;
     document.getElementById('res-errors').textContent = attempt.errors;
     document.getElementById('res-blank').textContent = attempt.unanswered;
@@ -140,9 +186,9 @@ const renderResults = (attempt) => {
         const isCorrect = userChoice === q.correctOption;
         const isBlank = !userChoice;
 
-        let badge = isCorrect ? '<span class="status-badge badge-correct">✅ Correcta</span>' :
-                    isBlank ? '<span class="status-badge badge-unanswered">⚠️ Sin responder</span>' :
-                    '<span class="status-badge badge-incorrect">❌ Incorrecta</span>';
+        let badge = isCorrect ? '<span class="status-badge badge-correct">Correcta</span>' :
+                    isBlank ? '<span class="status-badge badge-unanswered">Sin responder</span>' :
+                    '<span class="status-badge badge-incorrect">Incorrecta</span>';
         let statusClass = isCorrect ? 'status-correct' : isBlank ? 'status-unanswered' : 'status-incorrect';
 
         const item = document.createElement('div');
@@ -153,20 +199,20 @@ const renderResults = (attempt) => {
             const isRight = q.correctOption === opt.id;
             const isUser = userChoice === opt.id;
             let style = isRight ? 'is-correct' : (isUser ? 'is-user' : '');
-            let tag = isRight ? '✓ Respuesta Correcta' : (isUser ? '✗ Tu Respuesta' : '');
+            let tag = isRight ? 'Respuesta correcta' : (isUser ? 'Tu respuesta' : '');
 
             optionsHTML += `
                 <div class="review-option ${style}">
                     <span><strong>${prefixes[optIdx]}:</strong> ${escapeHTML(opt.text)}</span>
-                    <span style="font-size:0.75rem; font-weight:700;">${tag}</span>
+                    <span class="option-tag">${tag}</span>
                 </div>`;
         });
 
         item.innerHTML = `
             <div>${badge}</div>
-            <p style="font-weight:700; margin-bottom:8px;">${idx + 1}. ${escapeHTML(q.statement)}</p>
+            <p class="review-statement">${idx + 1}. ${escapeHTML(q.statement)}</p>
             <div>${optionsHTML}</div>
-            ${q.explanation ? `<div class="explanation-box">💡 <strong>Explicación:</strong> ${escapeHTML(q.explanation)}</div>` : ''}
+            ${q.explanation ? `<div class="explanation-box"><strong>Explicación:</strong> ${escapeHTML(q.explanation)}</div>` : ''}
         `;
         fragment.appendChild(item);
     });
@@ -179,17 +225,20 @@ const renderLastAttempt = () => {
     const history = Storage.getHistory();
     const container = document.getElementById('last-attempt-content');
     if (!history.length) {
-        container.innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted);">No hay simulacros completados todavía.</p>`;
+        container.innerHTML = `<p class="empty-state">Todavía no has completado ningún simulacro. Cuando termines el primero, aquí verás tu nota.</p>`;
         return;
     }
     const last = history[0];
     container.innerHTML = `
-        <div style="font-size:0.9rem;">
-            <p style="margin-bottom:4px;">📅 <strong>${new Date(last.date).toLocaleDateString()} ${new Date(last.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</strong></p>
-            <p style="margin-bottom:4px;">🎯 Nota: <strong style="color:var(--scs-blue);">${last.scorePct.toFixed(2)}%</strong> (${last.hits}/${last.totalQuestions})</p>
-            <p style="margin-bottom:8px;">⏱️ Tiempo: <strong>${formatTime(last.totalTimeSeconds)}</strong></p>
-            <button id="btn-view-last" class="btn btn-secondary btn-sm w-full">Revisar Intento</button>
-        </div>`;
+        <div class="last-score">
+            <span class="last-score-value">${formatPct(last.scorePct)}</span>
+            <span class="last-score-detail">${last.hits} de ${last.totalQuestions} aciertos</span>
+        </div>
+        <dl class="last-meta">
+            <div><dt>Fecha</dt><dd>${formatDate(last.date)}</dd></div>
+            <div><dt>Tiempo</dt><dd>${formatTime(last.totalTimeSeconds)}</dd></div>
+        </dl>
+        <button id="btn-view-last" class="btn btn-secondary btn-sm w-full">Revisar intento</button>`;
     document.getElementById('btn-view-last').addEventListener('click', () => renderResults(last));
 };
 
@@ -198,7 +247,7 @@ const renderHistoryScreen = () => {
     const history = Storage.getHistory();
     const container = document.getElementById('history-list-container');
     if (!history.length) {
-        container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:2rem;">El historial de intentos está vacío.</p>`;
+        container.innerHTML = `<p class="empty-state is-centered">Todavía no hay intentos guardados. Completa un simulacro y aparecerá aquí.</p>`;
         return;
     }
 
@@ -207,18 +256,27 @@ const renderHistoryScreen = () => {
         const card = document.createElement('div');
         card.className = 'history-card';
         card.innerHTML = `
-            <div>
-                <div style="font-weight:800; color:var(--scs-blue);">Examen de ${item.totalQuestions} Preguntas</div>
-                <div style="font-size:0.8rem; color:var(--text-muted);">
-                    👤 ${escapeHTML(item.candidateAlias)} | 📅 ${new Date(item.date).toLocaleDateString()} ${new Date(item.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+            <div class="history-main">
+                <div class="history-title">Examen de ${item.totalQuestions} preguntas</div>
+                <div class="history-meta">
+                    <span>${escapeHTML(item.candidateAlias)}</span>
+                    <span>${formatDate(item.date)}</span>
                 </div>
-                <div style="font-size:0.85rem; margin-top:4px;">
-                    Resultado: <strong style="color:var(--scs-blue);">${item.scorePct.toFixed(2)}%</strong> (${item.hits} aciertos, ${item.errors} errores) | ⏱️ ${formatTime(item.totalTimeSeconds)}
+                <div class="history-stats">
+                    <span><strong>${item.hits}</strong> aciertos</span>
+                    <span><strong>${item.errors}</strong> errores</span>
+                    <span><strong>${item.unanswered}</strong> sin responder</span>
                 </div>
             </div>
-            <div style="display:flex; gap:6px;">
-                <button class="btn btn-secondary btn-sm btn-view" data-id="${item.id}">Ver</button>
-                <button class="btn btn-danger btn-sm btn-del" data-id="${item.id}">🗑️</button>
+            <div class="history-side">
+                <div class="history-result">
+                    <div class="history-score">${formatPct(item.scorePct)}</div>
+                    <div class="history-time">${formatTime(item.totalTimeSeconds)}</div>
+                </div>
+                <div class="history-actions">
+                    <button class="btn btn-secondary btn-sm btn-view" data-id="${item.id}">Ver</button>
+                    <button class="btn btn-danger btn-sm btn-del" data-id="${item.id}" aria-label="Eliminar este intento">Eliminar</button>
+                </div>
             </div>`;
         fragment.appendChild(card);
     });
@@ -235,7 +293,7 @@ const renderHistoryScreen = () => {
 
     container.querySelectorAll('.btn-del').forEach(btn => {
         btn.addEventListener('click', e => {
-            showModal("Eliminar Intento", "¿Deseas eliminar este registro?", () => {
+            showModal("Eliminar intento", "¿Deseas eliminar este registro?", () => {
                 Storage.deleteAttempt(e.target.dataset.id);
                 renderHistoryScreen();
                 renderLastAttempt();
@@ -265,7 +323,7 @@ const startQuiz = (savedQuiz = null) => {
         persistActiveQuiz();
     }
 
-    document.getElementById('recovery-banner').style.display = 'none';
+    document.getElementById('recovery-banner').hidden = true;
     switchScreen('quiz');
     startTimer();
     renderQuestion();
@@ -306,7 +364,8 @@ const finishQuiz = () => {
     };
 
     if (pending > 0) {
-        showModal("Preguntas Pendientes", `Tienes ${pending} pregunta(s) sin responder de ${total}. ¿Deseas finalizar de todos modos?`, processFinish);
+        const pendingLabel = pending === 1 ? '1 pregunta sin responder' : `${pending} preguntas sin responder`;
+        showModal("Preguntas pendientes", `Tienes ${pendingLabel} de ${total}. ¿Deseas finalizar de todos modos?`, processFinish);
     } else {
         processFinish();
     }
@@ -318,7 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const aliasInput = document.getElementById('input-alias');
     aliasInput.value = state.alias;
     document.getElementById('display-alias').textContent = state.alias.trim() || 'Aspirante';
-    document.getElementById('available-info').textContent = `Disponibles actualmente: ${QUESTION_BANK.length} preguntas oficiales con respuesta verificada.`;
+    document.getElementById('available-info').textContent = `${QUESTION_BANK.length} preguntas disponibles con respuesta verificada.`;
+    document.getElementById('hero-bank').textContent = `${QUESTION_BANK.length} preguntas verificadas`;
 
     aliasInput.addEventListener('input', e => {
         state.alias = e.target.value;
@@ -329,15 +389,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeQuiz = Storage.getActiveQuiz();
     if (activeQuiz && activeQuiz.questions?.length) {
         document.getElementById('recovery-info').textContent = `Hay un examen de ${activeQuiz.questions.length} preguntas en curso (${Object.keys(activeQuiz.userAnswers || {}).length} respondidas).`;
-        document.getElementById('recovery-banner').style.display = 'flex';
+        document.getElementById('recovery-banner').hidden = false;
     }
 
     document.getElementById('btn-start-quiz').addEventListener('click', () => startQuiz());
     document.getElementById('btn-resume-quiz').addEventListener('click', () => startQuiz(Storage.getActiveQuiz()));
     document.getElementById('btn-discard-quiz').addEventListener('click', () => {
-        showModal("Descartar Examen", "¿Deseas borrar el cuestionario interrumpido?", () => {
+        showModal("Descartar examen", "¿Deseas borrar el cuestionario interrumpido?", () => {
             Storage.clearActiveQuiz();
-            document.getElementById('recovery-banner').style.display = 'none';
+            document.getElementById('recovery-banner').hidden = true;
         });
     });
 
@@ -356,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-view-history').addEventListener('click', renderHistoryScreen);
     document.getElementById('btn-back-home-history').addEventListener('click', () => { switchScreen('home'); renderLastAttempt(); });
     document.getElementById('btn-clear-history').addEventListener('click', () => {
-        showModal("Borrar Memoria Local", "¿Deseas borrar todo el historial de exámenes?", () => {
+        showModal("Borrar historial local", "¿Deseas borrar todo el historial de exámenes?", () => {
             Storage.clearHistory();
             renderLastAttempt();
         });

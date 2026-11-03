@@ -10,17 +10,18 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 
 | Dato | Valor |
 | --- | --- |
-| Rama | `main` |
+| Rama | `feature_cambio_diseño` |
 | Último commit | `7d71ebc` — *Se elimina carpeta public* (2026-10-30) |
 | Preguntas en el banco | 300 (`SCS-RAD-001` … `SCS-RAD-300`) |
-| Tamaño aproximado | `index.html` 212 líneas · `styles.css` 482 · `app.js` 367 · `questions.js` 7802 · `storage.js` 20 |
+| Tamaño aproximado | `index.html` 237 líneas · `styles.css` 1171 · `app.js` 425 · `questions.js` 7802 · `storage.js` 20 |
 | Dependencias / build | Ninguna. Sin `package.json`, tests ni linter |
 | Despliegue | Estático; basta con servir la carpeta por HTTP |
-| Metodología | SDD (Spec-Driven Development), regida por `constitution.md` v1.1.0 |
+| Tema visual | «Expediente de examen»: azul y blanco, serif documental + sans de interfaz |
+| Metodología | SDD (Spec-Driven Development), regida por `docs/constitution.md` v1.0.0 |
 
 ## Decisiones de arquitectura
 
-- **SDD como metodología de trabajo**: `constitution.md` es normativo y prevalece sobre convenciones no documentadas; toda especificación, plan, tarea y cambio debe ser conforme a él.
+- **SDD como metodología de trabajo**: `docs/constitution.md` es normativo y prevalece sobre convenciones no documentadas; toda especificación, plan, tarea y cambio debe ser conforme a él.
 - **Vanilla JS con módulos ES**, sin framework ni bundler. La simplicidad y el funcionamiento offline son requisitos, no una limitación temporal.
 - **Una sola página** (`index.html`) con cuatro secciones/pantallas (`home`, `quiz`, `results`, `history`) y un modal reutilizable. La navegación es visual (`switchScreen`), no basada en rutas ni en el historial del navegador.
 - **Estado global mutable** en `app.js` en lugar de una librería de estado. El render es imperativo y manual.
@@ -30,6 +31,8 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **Historial autocontenido**: cada intento guarda *snapshots* de preguntas y respuestas, de modo que cambios futuros en el banco no alteran intentos antiguos.
 - **Aleatorización Fisher-Yates** aplicada ~~al banco y a las opciones de cada pregunta~~ *(obsoleto desde 2026-11-02)*. Desde entonces se barajan **solo las preguntas**; las opciones conservan el orden exacto definido en `questions.js`.
 - **Corrección propia y modal propio**: no se usan `alert`, `confirm` ni `prompt`.
+- **Rediseño «expediente de examen» (2026-11-03)**: la interfaz se inspira en una hoja de examen oficial. Azul noche/sello/trazo sobre papel blanco y azulado, titulares en serif de sistema (Palatino/Georgia) y controles en sans del sistema. Se retira el amarillo y los emojis decorativos. Las opciones del test usan burbujas tipo OMR y la tarjeta de pregunta incorpora un margen de folio numerado.
+- **Sin fuentes ni recursos remotos**: el requisito offline impide usar Google Fonts u otros CDN; la identidad tipográfica se construye con pilas de fuentes locales.
 
 ## Convenciones acordadas
 
@@ -42,21 +45,25 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 ## Aprendizajes y trampas
 
 - **`file://` no funciona con módulos ES.** El `README.md` aún dice que se puede abrir `index.html` con doble clic; en la práctica hay que servir por HTTP (CORS bloquea `import`).
+- **El tema visual ya no usa `--scs-blue` ni `--scs-yellow`.** Las variables vigentes son las de la familia `--azul-*` y `--tinta-*`; cualquier estilo nuevo debe partir de ellas.
+- **Sin estilos inline en vistas**: `index.html` y el HTML generado por `app.js` usan clases del tema. Si se necesita un estado visual, añadir una clase en `styles.css`, no un `style="..."`.
+- Las opciones del examen son `div` con `role="radio"` y foco propio; al re-renderizar hay que devolver el foco con el parámetro de `renderQuestion(focusOptionIndex)`.
 - `questions.js` es enorme y solo contiene datos; editarlo a mano es propenso a errores de sintaxis. Validar que `correctOption` exista entre los `id` de `options`.
 - Los IDs de pregunta son la clave de `userAnswers`; deben ser únicos y estables.
 - `renderResults()` sirve tanto para el resultado recién calculado como para revisar un intento del historial; ambos deben tener la misma forma (`questionsSnapshot`, `userAnswersSnapshot`, etc.).
 - El botón «Nuevo Test» en resultados solo vuelve a la pantalla de inicio; no reinicia el test directamente.
 - `startQuiz(savedQuiz)` es la ruta de recuperación; cualquier cambio en el arranque debe contemplarla.
 - Los exámenes en curso guardados antes del cambio de regla conservan en su snapshot el orden de opciones barajado; los intentos nuevos ya usan el orden fijo. El historial antiguo es inmutable.
+- La constitución v1.1.0 no estaba en el árbol de trabajo (sí en el historial de Git); el 2026-11-03 se creó `docs/constitution.md` v1.0.0 como norma vigente. Las referencias antiguas a la raíz quedan como histórico.
 
 ## Deuda técnica e incidencias conocidas
 
 - `README.md` referencia un archivo `LICENSE` que **no existe** en el repositorio.
 - No hay `.gitignore`.
-- Abundantes estilos inline en `index.html` (deuda heredada).
 - `Storage.getHistory()` y `getActiveQuiz()` hacen `JSON.parse` sin `try/catch`: un valor corrupto en `localStorage` rompería la app.
 - No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.
 - Sin tests automatizados ni verificación de integridad del banco de preguntas.
+- El modal no atrapa el foco dentro del diálogo (solo fija el foco inicial y permite cerrar con `Escape`).
 
 ## Bitácora
 
@@ -64,3 +71,5 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **2026-11-02** — Se crea `MEMORY.md` como registro vivo de estado, decisiones y deuda técnica. Se enlaza desde `AGENTS.md` con la obligación de mantenerlo actualizado.
 - **2026-11-02** — Se adopta SDD y se crea `constitution.md` v1.0.0 (principios, restricciones, flujo, puertas de calidad y gobernanza). Se referencia desde `AGENTS.md` como documento normativo.
 - **2026-11-02** — Se fija el orden de las opciones: `startQuiz()` deja de barajar `q.options`; solo se aleatoriza el orden de las preguntas. Se actualizan `index.html`, `README.md`, `AGENTS.md` y `MEMORY.md`, y se enmienda `constitution.md` a v1.1.0 (§III).
+- **2026-11-03** — Rediseño completo de la interfaz en la rama `feature_cambio_diseño`: tema «expediente de examen» en azul y blanco, portada con ficha del banco, hoja de pregunta con folio y opciones tipo OMR, resultados con nota destacada y corrección/historial sin emojis. Se eliminan todos los estilos inline de `index.html` y del HTML generado; se añaden foco visible, opciones manejables por teclado, `aria-live` en el contador, `aria-valuenow` en el progreso y gestión de foco/`Escape`/`aria-hidden` en el modal. Verificado el flujo completo con Chrome headless (inicio, respuesta, teclado, finalización, resultados, historial y recuperación tras recarga) sin errores de consola ni desbordamiento horizontal en 375 px y 1280 px.
+- **2026-11-03** — Se crea `docs/constitution.md` v1.0.0 (texto nuevo aprobado) con seis principios (stack mínimo, spec-código, separación lógica/interfaz, verificación sin dependencias, datos protegidos e idioma) y se actualizan las referencias de `AGENTS.md` y `MEMORY.md`. La v1.1.0 anterior, ausente del árbol de trabajo, permanece en el historial (commit `ab5c9a6`).
