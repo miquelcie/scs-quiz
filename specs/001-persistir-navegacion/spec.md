@@ -25,10 +25,10 @@ Que el examen guardado refleje siempre la pregunta actual y el tiempo real, de m
 ## 4. Requisitos
 
 - **R1** — Tras cualquier cambio de `state.currentIndex` (Anterior/Siguiente), llamar a `persistActiveQuiz()`.
-- **R2** — Al ocultarse la página (`visibilitychange` con `document.hidden`) o al dispararse `pagehide`, si hay un examen activo, persistir el estado para no perder el tiempo del tramo en curso.
-- **R3** — No persistir cuando no hay examen activo (por ejemplo, tras finalizar) ni cuando el índice quede fuera de rango.
+- **R2** — Al ocultarse la página (`visibilitychange` con `document.hidden`) o al dispararse `pagehide`, si hay un examen activo, persistir el estado para no perder el tiempo del tramo en curso. Se considera «examen activo» únicamente la pantalla `quiz` con un cuestionario cargado en `state`; la mera existencia de `scs_active` no habilita la escritura.
+- **R3** — No persistir cuando no haya un examen activo en el sentido de R2 (por ejemplo, en la portada, en resultados o tras finalizar), aunque `state.questions` conserve el último cuestionario, ni cuando el índice quede fuera de rango.
 - **R4** — El snapshot debe contener `questions`, `userAnswers`, `currentIndex` y `accumulatedMs`; el cálculo no debe mutar `state.accumulatedMs` ni duplicar tiempo.
-- **R5** — Al recuperar, restaurar el índice guardado; si quedara fuera de rango, aplicar la política del spec 004 (no romper el render).
+- **R5** — Al recuperar, restaurar el índice guardado; si quedara fuera de rango, aplicar la política del spec 004: recortarlo al rango válido y no romper el render.
 
 ## 5. Criterios de aceptación
 
@@ -36,7 +36,8 @@ Que el examen guardado refleje siempre la pregunta actual y el tiempo real, de m
 - [ ] La respuesta de la pregunta 1 sigue marcada y el cronómetro muestra el tiempo acumulado antes de la recarga (con tolerancia de 1 s).
 - [ ] Retroceder a la pregunta 2 y recargar recupera la pregunta 2.
 - [ ] Permanecer 30 s en una pregunta sin responder, recargar y continuar conserva esos 30 s.
-- [ ] Tras finalizar el test, `scs_active` sigue siendo `null` y no se escribe nada.
+- [ ] Tras finalizar el test, permanecer en resultados, cambiar de pestaña y recargar: `scs_active` sigue siendo `null` y no se escribe nada.
+- [ ] En la portada con un examen guardado, cambiar de pestaña y recargar: el examen sigue disponible y no se sobrescribe con un snapshot vacío.
 - [ ] El tiempo no se duplica ni retrocede al navegar varias veces.
 
 ## 6. Verificación

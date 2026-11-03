@@ -27,11 +27,11 @@ Mostrar un texto correcto en singular y plural y un recuento fiable de preguntas
 
 ## 4. Requisitos
 
-- **R1** — Extraer a `js/engine.js` una función pura `countAnswered(questions, answers)` que cuente solo preguntas del snapshot con respuesta no vacía.
-- **R2** — Extraer a `js/engine.js` una función pura `formatRecoveryInfo(questions, answers)` (o equivalente) que devuelva el texto del banner.
-- **R3** — Textos:
-  - 0 respondidas: `Hay un examen de N preguntas en curso.`
-  - 1 respondida: `Hay un examen de N preguntas en curso (1 respondida).`
+- **R1** — Extraer a `js/engine.js` una función pura `countAnswered(questions, answers)` que cuente solo preguntas del snapshot con respuesta válida. Una respuesta es válida si es un string no vacío que además pertenece a los `id` de las opciones de su pregunta.
+- **R2** — Extraer a `js/engine.js` una función pura `formatRecoveryInfo(questions, answers)` (o equivalente) que devuelva el texto completo del banner. Contrato: devuelve `""` si no hay preguntas y nunca lanza excepciones, sea cual sea el tipo de sus argumentos.
+- **R3** — Textos (se pluraliza `N` en las tres formas y `M` en la de 2 o más):
+  - 0 respondidas: `Hay un examen de N preguntas en curso.` (con `N = 1`: `Hay un examen de 1 pregunta en curso.`)
+  - 1 respondida: `Hay un examen de N preguntas en curso (1 respondida).` (con `N = 1`: `Hay un examen de 1 pregunta en curso (1 respondida).`)
   - 2 o más: `Hay un examen de N preguntas en curso (M respondidas).`
 - **R4** — `js/app.js` debe usar la función extraída y no construir el texto a mano.
 - **R5** — El recuento debe ignorar ids ajenos y valores vacíos.
@@ -41,7 +41,10 @@ Mostrar un texto correcto en singular y plural y un recuento fiable de preguntas
 - [ ] Un examen con 0 respuestas no muestra paréntesis de recuento.
 - [ ] Con una respuesta muestra «(1 respondida)».
 - [ ] Con dos o más muestra «(M respondidas)».
-- [ ] Una respuesta con id inexistente no incrementa el recuento.
+- [ ] Un examen de una sola pregunta muestra «1 pregunta», no «1 preguntas».
+- [ ] Una respuesta con id inexistente o con una opción inexistente no incrementa el recuento.
+- [ ] Valores vacíos, `null`, `undefined` o numéricos no incrementan el recuento y no lanzan.
+- [ ] Sin preguntas, `formatRecoveryInfo` devuelve `""` y no lanza.
 - [ ] El texto se actualiza al recargar con el estado guardado.
 - [ ] `npm test` sigue en verde.
 
@@ -49,7 +52,7 @@ Mostrar un texto correcto en singular y plural y un recuento fiable de preguntas
 
 ### Automática
 
-- `tests/cu-03/recuperar.test.js`: casos 0, 1, 2 y respuesta ajena.
+- `tests/cu-03/recuperar.test.js`: casos 0, 1, 2 y 3 respuestas; respuesta con id ajeno; respuesta con opción inexistente; valores vacíos o no string; `answers` nulo o array; `questions` vacío; examen de una sola pregunta.
 
 ### Manual (Chrome DevTools)
 
@@ -57,6 +60,7 @@ Mostrar un texto correcto en singular y plural y un recuento fiable de preguntas
 2. Sin responder, recargar y comprobar el banner.
 3. Responder una y recargar; comprobar «(1 respondida)».
 4. Responder otra y recargar; comprobar «(2 respondidas)».
+5. Iniciar un test de una pregunta, responderla y recargar; comprobar «1 pregunta … (1 respondida)».
 
 ## 7. Riesgos y notas
 
