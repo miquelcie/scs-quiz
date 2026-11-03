@@ -16,6 +16,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 | Tamaño aproximado | `index.html` 237 líneas · `styles.css` 1171 · `app.js` 397 · `engine.js` 94 · `questions.js` 7802 · `storage.js` 20 |
 | Dependencias / build | Ninguna dependencia. `package.json` solo declara ESM y `node --test`; sin build ni linter |
 | Tests | 35 tests en `tests/cu-01` … `tests/cu-06`, runner nativo de Node |
+| Specs | 6 propuestas en `specs/001-*` … `specs/006-*` (bugs detectados, pendientes de implementar) |
 | Despliegue | Estático; basta con servir la carpeta por HTTP |
 | Tema visual | «Expediente de examen»: azul y blanco, serif documental + sans de interfaz |
 | Metodología | SDD (Spec-Driven Development), regida por `docs/constitution.md` v1.0.0 |
@@ -68,7 +69,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.
 - Los tests cubren solo la lógica pura: no hay tests de integración DOM ni verificación automática de integridad del banco (ids duplicados, `correctOption` válido).
 - El modal no atrapa el foco dentro del diálogo (solo fija el foco inicial y permite cerrar con `Escape`).
-- Incidencias verificadas y pendientes (2026-11-03): «Anterior/Siguiente» no persiste la pregunta actual; `btn-restart-from-res` no refresca «Último resultado»; al confirmar el modal el foco queda en un elemento oculto (aviso de `aria-hidden`); el banner de recuperación dice «1 respondidas».
+- Incidencias verificadas y pendientes (2026-11-03), con spec asociada: «Anterior/Siguiente» no persiste la pregunta actual (001); `btn-restart-from-res` no refresca «Último resultado» (002); iniciar un test sobrescribe el examen en curso (003); `localStorage` corrupto rompe el arranque (004); el banner de recuperación dice «1 respondidas» (005); el modal deja el foco oculto y no atrapa el foco (006).
 
 ## Bitácora
 

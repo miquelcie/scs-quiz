@@ -39,6 +39,7 @@ js/app.js           # Punto de entrada (type="module"): estado, timer, render y 
 js/engine.js        # Lógica pura del examen (testeable con node --test)
 js/questions.js     # Banco de preguntas (export const QUESTION_BANK)
 js/storage.js       # Wrapper de localStorage (export const Storage)
+specs/NNN-*/        # Especificaciones SDD (una carpeta por cambio)
 tests/cu-XX/        # Tests de los casos de uso esenciales
 tests/helpers/      # Fixtures y localStorage en memoria
 package.json        # Solo ESM + script de test; sin dependencias
