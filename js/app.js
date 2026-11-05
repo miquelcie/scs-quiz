@@ -248,6 +248,13 @@ const renderLastAttempt = () => {
     document.getElementById('btn-view-last').addEventListener('click', () => renderResults(last));
 };
 
+// Vuelve a la portada con la tarjeta «Último resultado» ya actualizada.
+// El render va antes del cambio de pantalla para que el foco (006) caiga sobre contenido vigente.
+const returnHome = () => {
+    renderLastAttempt();
+    switchScreen('home');
+};
+
 const renderHistoryScreen = () => {
     switchScreen('history');
     const history = Storage.getHistory();
@@ -408,10 +415,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pagehide', persistActiveQuiz);
 
     document.getElementById('btn-finish-quiz').addEventListener('click', finishQuiz);
-    document.getElementById('btn-restart-from-res').addEventListener('click', () => switchScreen('home'));
-    document.getElementById('btn-home-from-res').addEventListener('click', () => { switchScreen('home'); renderLastAttempt(); });
+    document.getElementById('btn-restart-from-res').addEventListener('click', returnHome);
+    document.getElementById('btn-home-from-res').addEventListener('click', returnHome);
     document.getElementById('btn-view-history').addEventListener('click', renderHistoryScreen);
-    document.getElementById('btn-back-home-history').addEventListener('click', () => { switchScreen('home'); renderLastAttempt(); });
+    document.getElementById('btn-back-home-history').addEventListener('click', returnHome);
     document.getElementById('btn-clear-history').addEventListener('click', () => {
         showModal("Borrar historial local", "¿Deseas borrar todo el historial de exámenes?", () => {
             Storage.clearHistory();

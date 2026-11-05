@@ -11,12 +11,12 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 | Dato | Valor |
 | --- | --- |
 | Rama | `hotfix_001` |
-| Último commit | `bee8eef` — *feat: creacion de tasks.md y refactor* (2026-11-04) |
+| Último commit | `c9a0fba` — *test: cerrar 001 con caso de aceptacion y evidencia* (2026-11-05) |
 | Preguntas en el banco | 300 (`SCS-RAD-001` … `SCS-RAD-300`) |
-| Tamaño aproximado | `index.html` 237 líneas · `styles.css` 1174 · `app.js` 423 · `engine.js` 112 · `questions.js` 7802 · `storage.js` 20 |
+| Tamaño aproximado | `index.html` 237 líneas · `styles.css` 1174 · `app.js` 430 · `engine.js` 112 · `questions.js` 7802 · `storage.js` 20 |
 | Dependencias / build | Ninguna dependencia. `package.json` solo declara ESM y `node --test`; sin build ni linter |
-| Tests | 43 tests en `tests/cu-01` … `tests/cu-06`, runner nativo de Node |
-| Specs | 6 propuestas en `specs/001-*` … `specs/006-*`; 001 implementada (2026-11-04), 002–006 pendientes |
+| Tests | 44 tests en `tests/cu-01` … `tests/cu-06`, runner nativo de Node |
+| Specs | 6 propuestas en `specs/001-*` … `specs/006-*`; 001–002 implementadas (2026-11-05), 003–006 pendientes |
 | Despliegue | Estático; basta con servir la carpeta por HTTP |
 | Tema visual | «Expediente de examen»: azul y blanco, serif documental + sans de interfaz |
 | Metodología | SDD (Spec-Driven Development), regida por `docs/constitution.md` v1.0.0 |
@@ -32,6 +32,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **Tests con el runner nativo de Node (2026-11-03)**: `node --test` + `node:assert/strict`. `package.json` existe únicamente para declarar `"type": "module"` y el script `npm test`; no tiene dependencias ni build.
 - **Cronómetro por timestamps** (`Date.now()` + `accumulatedMs`), no por incremento de contadores, para resistir la suspensión de la pestaña.
 - **Recuperación de examen**: cada respuesta persiste el test en `scs_active`; al cargar, se ofrece continuarlo o descartarlo.
+- **Salida única a la portada (2026-11-05)**: `returnHome()` pinta `renderLastAttempt()` antes de `switchScreen('home')`; las tres salidas de resultados/historial comparten la misma ruta para no divergir y para que el foco de 006 caiga sobre contenido actualizado.
 - **Historial autocontenido**: cada intento guarda *snapshots* de preguntas y respuestas, de modo que cambios futuros en el banco no alteran intentos antiguos.
 - **Aleatorización Fisher-Yates** aplicada ~~al banco y a las opciones de cada pregunta~~ *(obsoleto desde 2026-11-02)*. Desde entonces se barajan **solo las preguntas**; las opciones conservan el orden exacto definido en `questions.js`.
 - **Corrección propia y modal propio**: no se usan `alert`, `confirm` ni `prompt`.
@@ -69,7 +70,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.
 - Los tests cubren solo la lógica pura: no hay tests de integración DOM ni verificación automática de integridad del banco (ids duplicados, `correctOption` válido).
 - El modal no atrapa el foco dentro del diálogo (solo fija el foco inicial y permite cerrar con `Escape`).
-- Incidencias verificadas y pendientes (2026-11-03), con spec asociada: ~~«Anterior/Siguiente» no persiste la pregunta actual (001)~~ *(resuelta el 2026-11-04)*; `btn-restart-from-res` no refresca «Último resultado» (002); iniciar un test sobrescribe el examen en curso (003); `localStorage` corrupto rompe el arranque (004); el banner de recuperación dice «1 respondidas» (005); el modal deja el foco oculto y no atrapa el foco (006).
+- Incidencias verificadas y pendientes (2026-11-03), con spec asociada: ~~«Anterior/Siguiente» no persiste la pregunta actual (001)~~ *(resuelta el 2026-11-04)*; ~~`btn-restart-from-res` no refresca «Último resultado» (002)~~ *(resuelta el 2026-11-05)*; iniciar un test sobrescribe el examen en curso (003); `localStorage` corrupto rompe el arranque (004); el banner de recuperación dice «1 respondidas» (005); el modal deja el foco oculto y no atrapa el foco (006).
 
 ## Bitácora
 
@@ -83,3 +84,4 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **2026-11-03** — Se revisan los seis specs como QA y se crean sus `plan.md` (uno por spec) con trazabilidad RF, archivos, funciones puras, pseudocódigo, pintado, decisiones y estrategia de tests. Se aplican a los `spec.md` las enmiendas detectadas: definición de «examen activo» (001), «último intento» = `history[0]` y unificación de las tres salidas (002), criterio del banner, comparación de `scs_active` y relectura en el clic (003), validación frente a normalización, aviso de fallo de escritura y preservación del crudo (004), pluralización de `N` (005) y destinos de foco, `hidden` con regla CSS e `inert` sin `aria-hidden` (006). Cobertura verificada: 42/42 RF referenciados en los planes. Sin cambios de código; `npm test` sigue en 35/35.
 - **2026-11-03** — Se crean los seis `specs/**/tasks.md` con 49 tareas de 15–30 min, ordenadas por dependencia, con RF cubiertos y un «Hecho cuando» verificable por tarea. La cobertura se comprobó con un script: 42/42 RF aparecen en al menos una tarea de su spec. Sin cambios de código; los `tasks.md` quedan sin commitear.
 - **2026-11-04** — Implementado 001 (persistir la navegación): tests primero en CU-02/CU-03 (fallaron por exportaciones ausentes), luego `moveIndex()` e `isQuizInProgress()` en `engine.js`, `saveActiveQuizNow()`/`persistActiveQuiz()` con guarda de pantalla, `navigate()` conectado a «Anterior/Siguiente», listeners `visibilitychange`/`pagehide` y recorte del índice al recuperar. `node --test` → 43/43. Verificado en Chrome DevTools: recarga en la pregunta 3 (`currentIndex: 2`, tiempo conservado), retroceso a la 2 tras recargar, `pagehide`/`visibilitychange` suman tiempo, resultados e historial correctos, `scs_active` no se escribe fuera del examen, consola limpia y 375 px reales vía CDP sin desbordamiento. Las 7 tareas de `tasks.md` quedan marcadas y con evidencia de cierre.
+- **2026-11-05** — Implementado 002 (refrescar «Último resultado»): test de solo lectura del historial en CU-05 y después `returnHome()` en `app.js`, que ejecuta `renderLastAttempt()` antes de `switchScreen('home')`; las tres salidas de resultados/historial comparten esa ruta. `node --test` → 44/44. Verificado en Chrome DevTools con dos intentos (0 % y 100 %): las tres salidas muestran `history[0]`, revisar el antiguo y volver muestra el último, el historial no cambia, el estado vacío aparece en las tres rutas, consola limpia y 375 px reales vía CDP sin desbordamiento. Las 5 tareas de `tasks.md` quedan marcadas.

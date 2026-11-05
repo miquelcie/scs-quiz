@@ -19,6 +19,18 @@ describe('CU-05 — Historial de intentos', () => {
         assert.deepEqual(Storage.getHistory().map(a => a.id), ['att_2', 'att_1']);
     });
 
+    test('consultar el historial no lo modifica', () => {
+        Storage.saveAttempt({ id: 'att_1' });
+        Storage.saveAttempt({ id: 'att_2' });
+        const before = localStorage.getItem('scs_history');
+
+        Storage.getHistory();
+        Storage.getHistory();
+
+        assert.equal(localStorage.getItem('scs_history'), before);
+        assert.deepEqual(Storage.getHistory().map(a => a.id), ['att_2', 'att_1']);
+    });
+
     test('elimina el intento indicado', () => {
         Storage.saveAttempt({ id: 'att_1' });
         Storage.saveAttempt({ id: 'att_2' });
