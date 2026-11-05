@@ -38,10 +38,18 @@ export const shuffle = (array, random = Math.random) => {
 
 // Construye el cuestionario: baraja preguntas y conserva el orden de las opciones.
 export const buildQuiz = (bank, count, random = Math.random) => {
+    if (!Array.isArray(bank) || bank.length === 0) return [];
+
     const shuffledBank = shuffle(bank, random);
-    const actualCount = count === 'max'
-        ? shuffledBank.length
-        : Math.min(parseInt(count, 10), shuffledBank.length);
+    let actualCount;
+    if (count === 'max') {
+        actualCount = shuffledBank.length;
+    } else {
+        const parsed = Number.isInteger(count) ? count : parseInt(count, 10);
+        actualCount = Number.isInteger(parsed) && parsed > 0
+            ? Math.min(parsed, shuffledBank.length)
+            : shuffledBank.length;
+    }
     return shuffledBank.slice(0, actualCount).map(q => ({ ...q }));
 };
 
@@ -238,6 +246,10 @@ export const formatRecoveryInfo = (questions, answers) => {
 
 // Corrección del cuestionario.
 export const scoreQuiz = (questions, answers) => {
+    if (!Array.isArray(questions) || questions.length === 0) {
+        return { hits: 0, errors: 0, unanswered: 0, scorePct: 0 };
+    }
+
     let hits = 0;
     let errors = 0;
     let unanswered = 0;
