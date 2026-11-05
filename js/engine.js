@@ -166,6 +166,38 @@ export const normalizeAttempt = attempt => {
 export const normalizeHistory = history =>
     Array.isArray(history) ? history.map(normalizeAttempt).filter(Boolean) : [];
 
+// --- TEXTOS DEL BANNER DE RECUPERACIÓN ---
+
+export const pluralize = (count, singular, plural) =>
+    `${count} ${count === 1 ? singular : plural}`;
+
+// Cuenta solo respuestas no vacías que pertenecen a una opción de su pregunta.
+export const countAnswered = (questions, answers) => {
+    if (!Array.isArray(questions) || !isPlainObject(answers)) return 0;
+
+    return questions.reduce((count, question) => {
+        if (!isValidQuestion(question)) return count;
+
+        const value = answers[question.id];
+        if (!isNonEmptyString(value)) return count;
+
+        const belongsToQuestion = question.options.some(option => option.id === value);
+        return belongsToQuestion ? count + 1 : count;
+    }, 0);
+};
+
+// Texto completo del banner; sin preguntas devuelve cadena vacía y nunca lanza.
+export const formatRecoveryInfo = (questions, answers) => {
+    if (!Array.isArray(questions) || questions.length === 0) return '';
+
+    const total = questions.length;
+    const answered = countAnswered(questions, answers);
+    const base = `Hay un examen de ${pluralize(total, 'pregunta', 'preguntas')} en curso`;
+
+    if (answered === 0) return `${base}.`;
+    return `${base} (${pluralize(answered, 'respondida', 'respondidas')}).`;
+};
+
 // Corrección del cuestionario.
 export const scoreQuiz = (questions, answers) => {
     let hits = 0;

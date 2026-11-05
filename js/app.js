@@ -7,6 +7,7 @@ import {
     escapeHTML,
     formatDate,
     formatPct,
+    formatRecoveryInfo,
     formatTime,
     isQuizInProgress,
     moveIndex,
@@ -428,7 +429,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const activeQuiz = Storage.getActiveQuiz();
     if (activeQuiz && activeQuiz.questions?.length) {
-        document.getElementById('recovery-info').textContent = `Hay un examen de ${activeQuiz.questions.length} preguntas en curso (${Object.keys(activeQuiz.userAnswers || {}).length} respondidas).`;
+        document.getElementById('recovery-info').textContent = formatRecoveryInfo(
+            activeQuiz.questions,
+            activeQuiz.userAnswers
+        );
         document.getElementById('recovery-banner').hidden = false;
     }
 

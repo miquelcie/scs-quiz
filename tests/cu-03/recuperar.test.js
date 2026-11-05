@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { Storage } from '../../js/storage.js';
 import {
     buildActiveQuizSnapshot,
+    countAnswered,
+    formatRecoveryInfo,
     isNonEmptyString,
     isPlainObject,
     isValidQuestion,
     moveIndex,
     normalizeActiveQuiz,
+    pluralize,
     sanitizeAnswers
 } from '../../js/engine.js';
 import { makeBank } from '../helpers/fixtures.js';
@@ -281,5 +284,104 @@ describe('CU-03 — Validación de datos persistidos', () => {
         assert.deepEqual(recovered.userAnswers, { 'T-001': 'A' });
         assert.equal(recovered.currentIndex, recovered.questions.length - 1);
         assert.equal(recovered.accumulatedMs, 0);
+    });
+});
+
+describe('CU-03 — Textos y recuento del banner de recuperación', () => {
+    test('pluralize distingue singular y plural', () => {
+        assert.equal(pluralize(1, 'pregunta', 'preguntas'), '1 pregunta');
+        assert.equal(pluralize(2, 'pregunta', 'preguntas'), '2 preguntas');
+        assert.equal(pluralize(1, 'respondida', 'respondidas'), '1 respondida');
+        assert.equal(pluralize(3, 'respondida', 'respondidas'), '3 respondidas');
+    });
+
+    test('countAnswered cuenta respuestas válidas del cuestionario', () => {
+        const questions = makeBank();
+
+        assert.equal(countAnswered(questions, {}), 0);
+        assert.equal(countAnswered(questions, { 'T-001': 'A' }), 1);
+        assert.equal(countAnswered(questions, { 'T-001': 'A', 'T-002': 'B' }), 2);
+        assert.equal(
+            countAnswered(questions, { 'T-001': 'A', 'T-002': 'B', 'T-003': 'C' }),
+            3
+        );
+    });
+
+    test('countAnswered ignora ids ajenos, opciones inexistentes y valores inválidos', () => {
+        const questions = makeBank();
+        const answers = {
+            'T-001': 'A',
+            'T-999': 'A',
+            'T-002': 'Z',
+            'T-003': '',
+            'T-004': null
+        };
+
+        assert.equal(countAnswered(questions, answers), 1);
+
+        assert.equal(countAnswered(questions, { 'T-001': undefined }), 0);
+        assert.equal(countAnswered(questions, { 'T-001': 5 }), 0);
+        assert.equal(countAnswered(questions, { 'T-001': '   ' }), 0);
+    });
+
+    test('countAnswered devuelve 0 con argumentos no representables sin lanzar', () => {
+        const questions = makeBank();
+
+        assert.equal(countAnswered(null, null), 0);
+        assert.equal(countAnswered(questions, null), 0);
+        assert.equal(countAnswered(questions, []), 0);
+        assert.equal(countAnswered('no-es-un-array', {}), 0);
+        assert.equal(countAnswered([null, {}, 'texto'], {}), 0);
+    });
+
+    test('formatRecoveryInfo con 0 respuestas no muestra paréntesis', () => {
+        assert.equal(
+            formatRecoveryInfo(makeBank(), {}),
+            'Hay un examen de 4 preguntas en curso.'
+        );
+    });
+
+    test('formatRecoveryInfo usa el singular con una respuesta', () => {
+        assert.equal(
+            formatRecoveryInfo(makeBank(), { 'T-001': 'A' }),
+            'Hay un examen de 4 preguntas en curso (1 respondida).'
+        );
+    });
+
+    test('formatRecoveryInfo usa el plural con dos o más respuestas', () => {
+        assert.equal(
+            formatRecoveryInfo(makeBank(), { 'T-001': 'A', 'T-002': 'B' }),
+            'Hay un examen de 4 preguntas en curso (2 respondidas).'
+        );
+        assert.equal(
+            formatRecoveryInfo(makeBank(), { 'T-001': 'A', 'T-002': 'B', 'T-003': 'C' }),
+            'Hay un examen de 4 preguntas en curso (3 respondidas).'
+        );
+    });
+
+    test('formatRecoveryInfo pluraliza también el total de un test de una pregunta', () => {
+        const oneQuestion = [makeBank()[0]];
+
+        assert.equal(
+            formatRecoveryInfo(oneQuestion, { 'T-001': 'A' }),
+            'Hay un examen de 1 pregunta en curso (1 respondida).'
+        );
+    });
+
+    test('formatRecoveryInfo devuelve cadena vacía sin preguntas', () => {
+        assert.equal(formatRecoveryInfo([], {}), '');
+        assert.equal(formatRecoveryInfo(null, {}), '');
+        assert.equal(formatRecoveryInfo(undefined, null), '');
+        assert.equal(formatRecoveryInfo({}, []), '');
+    });
+
+    test('formatRecoveryInfo nunca lanza con argumentos de cualquier tipo', () => {
+        const values = [null, undefined, '', 0, 1, 'texto', {}, [], [{ id: 'X' }], [null]];
+
+        values.forEach(questions => {
+            values.forEach(answers => {
+                assert.doesNotThrow(() => formatRecoveryInfo(questions, answers));
+            });
+        });
     });
 });
