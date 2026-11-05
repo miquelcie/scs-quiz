@@ -115,6 +115,9 @@ const showModal = (title, msg, onConfirm) => {
     btnConfirm.focus();
 };
 
+// Aviso de una operación de almacenamiento que no se pudo completar.
+const showStorageError = (title, message) => showModal(title, message, () => {});
+
 // --- RENDERIZADO DE VISTAS ---
 const renderQuestion = (focusOptionIndex = null) => {
     const q = state.questions[state.currentIndex];
@@ -178,12 +181,12 @@ const renderQuestion = (focusOptionIndex = null) => {
 
 const renderResults = (attempt) => {
     switchScreen('results');
-    document.getElementById('results-candidate').textContent = `Aspirante: ${attempt.candidateAlias}. ${formatDate(attempt.date)}`;
-    document.getElementById('res-score-pct').textContent = formatPct(attempt.scorePct);
-    document.getElementById('res-hits').textContent = attempt.hits;
-    document.getElementById('res-errors').textContent = attempt.errors;
-    document.getElementById('res-blank').textContent = attempt.unanswered;
-    document.getElementById('res-time-total').textContent = formatTime(attempt.totalTimeSeconds);
+    document.getElementById('results-candidate').textContent = `Aspirante: ${String(attempt.candidateAlias ?? 'Aspirante')}. ${formatDate(attempt.date)}`;
+    document.getElementById('res-score-pct').textContent = formatPct(Number(attempt.scorePct));
+    document.getElementById('res-hits').textContent = Number(attempt.hits);
+    document.getElementById('res-errors').textContent = Number(attempt.errors);
+    document.getElementById('res-blank').textContent = Number(attempt.unanswered);
+    document.getElementById('res-time-total').textContent = formatTime(Number(attempt.totalTimeSeconds));
 
     const container = document.getElementById('review-container');
     const fragment = document.createDocumentFragment();
@@ -239,12 +242,12 @@ const renderLastAttempt = () => {
     const last = history[0];
     container.innerHTML = `
         <div class="last-score">
-            <span class="last-score-value">${formatPct(last.scorePct)}</span>
-            <span class="last-score-detail">${last.hits} de ${last.totalQuestions} aciertos</span>
+            <span class="last-score-value">${formatPct(Number(last.scorePct))}</span>
+            <span class="last-score-detail">${Number(last.hits)} de ${Number(last.totalQuestions)} aciertos</span>
         </div>
         <dl class="last-meta">
-            <div><dt>Fecha</dt><dd>${formatDate(last.date)}</dd></div>
-            <div><dt>Tiempo</dt><dd>${formatTime(last.totalTimeSeconds)}</dd></div>
+            <div><dt>Fecha</dt><dd>${escapeHTML(formatDate(last.date))}</dd></div>
+            <div><dt>Tiempo</dt><dd>${formatTime(Number(last.totalTimeSeconds))}</dd></div>
         </dl>
         <button id="btn-view-last" class="btn btn-secondary btn-sm w-full">Revisar intento</button>`;
     document.getElementById('btn-view-last').addEventListener('click', () => renderResults(last));
@@ -268,29 +271,30 @@ const renderHistoryScreen = () => {
 
     const fragment = document.createDocumentFragment();
     history.forEach(item => {
+        const safeId = escapeHTML(String(item.id));
         const card = document.createElement('div');
         card.className = 'history-card';
         card.innerHTML = `
             <div class="history-main">
-                <div class="history-title">Examen de ${item.totalQuestions} preguntas</div>
+                <div class="history-title">Examen de ${Number(item.totalQuestions)} preguntas</div>
                 <div class="history-meta">
-                    <span>${escapeHTML(item.candidateAlias)}</span>
-                    <span>${formatDate(item.date)}</span>
+                    <span>${escapeHTML(String(item.candidateAlias))}</span>
+                    <span>${escapeHTML(formatDate(item.date))}</span>
                 </div>
                 <div class="history-stats">
-                    <span><strong>${item.hits}</strong> aciertos</span>
-                    <span><strong>${item.errors}</strong> errores</span>
-                    <span><strong>${item.unanswered}</strong> sin responder</span>
+                    <span><strong>${Number(item.hits)}</strong> aciertos</span>
+                    <span><strong>${Number(item.errors)}</strong> errores</span>
+                    <span><strong>${Number(item.unanswered)}</strong> sin responder</span>
                 </div>
             </div>
             <div class="history-side">
                 <div class="history-result">
-                    <div class="history-score">${formatPct(item.scorePct)}</div>
-                    <div class="history-time">${formatTime(item.totalTimeSeconds)}</div>
+                    <div class="history-score">${formatPct(Number(item.scorePct))}</div>
+                    <div class="history-time">${formatTime(Number(item.totalTimeSeconds))}</div>
                 </div>
                 <div class="history-actions">
-                    <button class="btn btn-secondary btn-sm btn-view" data-id="${item.id}">Ver</button>
-                    <button class="btn btn-danger btn-sm btn-del" data-id="${item.id}" aria-label="Eliminar este intento">Eliminar</button>
+                    <button class="btn btn-secondary btn-sm btn-view" data-id="${safeId}">Ver</button>
+                    <button class="btn btn-danger btn-sm btn-del" data-id="${safeId}" aria-label="Eliminar este intento">Eliminar</button>
                 </div>
             </div>`;
         fragment.appendChild(card);
@@ -309,7 +313,13 @@ const renderHistoryScreen = () => {
     container.querySelectorAll('.btn-del').forEach(btn => {
         btn.addEventListener('click', e => {
             showModal("Eliminar intento", "¿Deseas eliminar este registro?", () => {
-                Storage.deleteAttempt(e.target.dataset.id);
+                if (!Storage.deleteAttempt(e.target.dataset.id)) {
+                    showStorageError(
+                        'No se pudo borrar',
+                        'No se pudo eliminar el intento. El historial guardado no se ha modificado.'
+                    );
+                    return;
+                }
                 renderHistoryScreen();
                 renderLastAttempt();
             });
@@ -368,7 +378,7 @@ const finishQuiz = () => {
 
     const processFinish = () => {
         stopTimer();
-        Storage.clearActiveQuiz();
+        const activeCleared = Storage.clearActiveQuiz();
 
         const attempt = createAttempt({
             questions: state.questions,
@@ -377,8 +387,20 @@ const finishQuiz = () => {
             totalTimeSeconds: Math.floor(state.accumulatedMs / 1000)
         });
 
-        Storage.saveAttempt(attempt);
+        const saved = Storage.saveAttempt(attempt);
         renderResults(attempt);
+
+        if (!saved) {
+            showStorageError(
+                'No se pudo guardar',
+                'El intento no se pudo guardar en este navegador. El resultado se muestra, pero se perderá al recargar.'
+            );
+        } else if (!activeCleared) {
+            showStorageError(
+                'No se pudo borrar el examen en curso',
+                'El intento se ha guardado, pero el examen en curso sigue almacenado y podría reaparecer al recargar.'
+            );
+        }
     };
 
     if (pending > 0) {
@@ -442,7 +464,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-back-home-history').addEventListener('click', returnHome);
     document.getElementById('btn-clear-history').addEventListener('click', () => {
         showModal("Borrar historial local", "¿Deseas borrar todo el historial de exámenes?", () => {
-            Storage.clearHistory();
+            if (!Storage.clearHistory()) {
+                showStorageError(
+                    'No se pudo borrar',
+                    'No se pudo borrar el historial guardado. Los intentos siguen en este navegador.'
+                );
+                return;
+            }
             renderLastAttempt();
         });
     });

@@ -55,6 +55,117 @@ export const isQuizInProgress = (questions, currentIndex) =>
     currentIndex >= 0 &&
     currentIndex < questions.length;
 
+// --- VALIDACIÓN DE DATOS PERSISTIDOS ---
+
+export const isPlainObject = value =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+
+export const isNonEmptyString = value =>
+    typeof value === 'string' && value.trim() !== '';
+
+const isValidOption = option =>
+    isPlainObject(option) && isNonEmptyString(option.id);
+
+export const isValidQuestion = question => {
+    if (!isPlainObject(question) || !isNonEmptyString(question.id)) return false;
+    if (!Array.isArray(question.options) || question.options.length === 0) return false;
+
+    const optionIds = new Set();
+    for (const option of question.options) {
+        if (!isValidOption(option) || optionIds.has(option.id)) return false;
+        optionIds.add(option.id);
+    }
+
+    return isNonEmptyString(question.correctOption) && optionIds.has(question.correctOption);
+};
+
+export const isValidActiveQuizShape = data =>
+    isPlainObject(data) &&
+    Array.isArray(data.questions) &&
+    data.questions.length > 0 &&
+    data.questions.every(isValidQuestion) &&
+    isPlainObject(data.userAnswers) &&
+    Number.isInteger(data.currentIndex);
+
+// Solo conserva respuestas de preguntas propias, con texto no vacío y opción existente.
+export const sanitizeAnswers = (questions, answers) => {
+    if (!Array.isArray(questions) || !isPlainObject(answers)) return {};
+
+    const validOptions = new Map();
+    questions.forEach(question => {
+        if (isValidQuestion(question)) {
+            validOptions.set(question.id, new Set(question.options.map(option => option.id)));
+        }
+    });
+
+    const sanitized = {};
+    Object.keys(answers).forEach(questionId => {
+        const optionId = answers[questionId];
+        if (!validOptions.has(questionId) || !isNonEmptyString(optionId)) return;
+        if (!validOptions.get(questionId).has(optionId)) return;
+        sanitized[questionId] = optionId;
+    });
+
+    return sanitized;
+};
+
+// Valida la estructura, recorta el índice y normaliza respuestas y tiempo.
+export const normalizeActiveQuiz = data => {
+    if (!isValidActiveQuizShape(data)) return null;
+
+    const { questions } = data;
+    const currentIndex = Math.min(Math.max(data.currentIndex, 0), questions.length - 1);
+    const accumulatedMs = Number.isFinite(data.accumulatedMs) && data.accumulatedMs >= 0
+        ? data.accumulatedMs
+        : 0;
+
+    return {
+        questions,
+        userAnswers: sanitizeAnswers(questions, data.userAnswers),
+        currentIndex,
+        accumulatedMs
+    };
+};
+
+const isValidDate = value =>
+    isNonEmptyString(value) && !Number.isNaN(new Date(value).getTime());
+
+// Normaliza un intento y recalcula sus métricas desde los snapshots.
+export const normalizeAttempt = attempt => {
+    if (!isPlainObject(attempt) || !isNonEmptyString(attempt.id)) return null;
+
+    const snapshot = attempt.questionsSnapshot;
+    if (!Array.isArray(snapshot) || snapshot.length === 0) return null;
+    if (!snapshot.every(isValidQuestion)) return null;
+    if (!isPlainObject(attempt.userAnswersSnapshot)) return null;
+
+    const answers = sanitizeAnswers(snapshot, attempt.userAnswersSnapshot);
+    const metrics = scoreQuiz(snapshot, answers);
+    const totalTimeSeconds = Number.isFinite(attempt.totalTimeSeconds) && attempt.totalTimeSeconds >= 0
+        ? Math.floor(attempt.totalTimeSeconds)
+        : 0;
+
+    return {
+        id: attempt.id,
+        date: isValidDate(attempt.date) ? attempt.date : '',
+        candidateAlias: isNonEmptyString(attempt.candidateAlias)
+            ? attempt.candidateAlias.trim()
+            : DEFAULT_ALIAS,
+        totalQuestions: snapshot.length,
+        hits: metrics.hits,
+        errors: metrics.errors,
+        unanswered: metrics.unanswered,
+        scorePct: metrics.scorePct,
+        totalTimeSeconds,
+        questionsSnapshot: snapshot,
+        userAnswersSnapshot: answers
+    };
+};
+
+// Filtra las entradas no representables sin lanzar ni reescribir el historial.
+export const normalizeHistory = history =>
+    Array.isArray(history) ? history.map(normalizeAttempt).filter(Boolean) : [];
+
 // Corrección del cuestionario.
 export const scoreQuiz = (questions, answers) => {
     let hits = 0;
@@ -100,13 +211,28 @@ export const createAttempt = ({
 // --- FORMATO ---
 
 export const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
+    if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
+
+    const total = Math.floor(seconds);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
     const pad = n => String(n).padStart(2, '0');
     return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 };
 
-export const formatPct = value => `${value.toFixed(2).replace('.', ',')} %`;
+export const formatPct = value => {
+    if (!Number.isFinite(value)) return '—';
+    return `${value.toFixed(2).replace('.', ',')} %`;
+};
 
-export const formatDate = iso => new Date(iso).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+export const formatDate = iso => {
+    if (!isNonEmptyString(iso)) return '—';
+
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '—';
+
+    return date.toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+};
 
 export const escapeHTML = str => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

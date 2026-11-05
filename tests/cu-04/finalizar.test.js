@@ -1,12 +1,34 @@
-import { beforeEach, describe, test } from 'node:test';
+import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAttempt, formatPct, formatTime, scoreQuiz } from '../../js/engine.js';
+import {
+    createAttempt,
+    formatDate,
+    formatPct,
+    formatTime,
+    scoreQuiz
+} from '../../js/engine.js';
 import { Storage } from '../../js/storage.js';
 import { makeBank } from '../helpers/fixtures.js';
+import { createFailingStorage } from '../helpers/failing-storage.js';
 import { createMemoryStorage } from '../helpers/memory-storage.js';
+
+const originalLocalStorage = globalThis.localStorage;
 
 beforeEach(() => {
     globalThis.localStorage = createMemoryStorage();
+});
+
+afterEach(() => {
+    globalThis.localStorage = originalLocalStorage;
+});
+
+const storedAttempt = (now = 1) => createAttempt({
+    questions: makeBank(),
+    userAnswers: { 'T-001': 'A' },
+    alias: 'Ana',
+    totalTimeSeconds: 10,
+    now,
+    date: new Date('2026-11-03T10:00:00.000Z')
 });
 
 describe('CU-04 — Finalizar y corregir', () => {
@@ -87,11 +109,87 @@ describe('CU-04 — Finalizar y corregir', () => {
         const attempt = createAttempt({ questions, userAnswers: {}, alias: 'Ana', totalTimeSeconds: 10 });
 
         Storage.setActiveQuiz({ questions, userAnswers: {}, currentIndex: 1, accumulatedMs: 0 });
-        Storage.saveAttempt(attempt);
-        Storage.clearActiveQuiz();
+        assert.equal(Storage.saveAttempt(attempt), true);
+        assert.equal(Storage.clearActiveQuiz(), true);
 
         assert.equal(Storage.getHistory().length, 1);
         assert.equal(Storage.getHistory()[0].id, attempt.id);
         assert.equal(Storage.getActiveQuiz(), null);
+    });
+});
+
+describe('CU-04 — Formateadores tolerantes a datos corruptos', () => {
+    test('una fecha inválida devuelve un guion', () => {
+        assert.equal(formatDate('no-es-una-fecha'), '—');
+        assert.equal(formatDate(''), '—');
+        assert.equal(formatDate(null), '—');
+    });
+
+    test('un porcentaje no finito devuelve un guion', () => {
+        assert.equal(formatPct(NaN), '—');
+        assert.equal(formatPct(Infinity), '—');
+        assert.equal(formatPct('50'), '—');
+    });
+
+    test('un tiempo no finito o negativo devuelve 00:00', () => {
+        assert.equal(formatTime(NaN), '00:00');
+        assert.equal(formatTime(Infinity), '00:00');
+        assert.equal(formatTime(-5), '00:00');
+    });
+});
+
+describe('CU-04 — Guardado robusto', () => {
+    test('guardar con scs_history corrupto no lanza y deja el intento visible', () => {
+        localStorage.setItem('scs_history', '{');
+        const attempt = storedAttempt(10);
+
+        assert.equal(Storage.saveAttempt(attempt), true);
+
+        const history = Storage.getHistory();
+        assert.equal(history.length, 1);
+        assert.equal(history[0].id, attempt.id);
+    });
+
+    test('guardar conserva las entradas inválidas del historial crudo', () => {
+        const previous = storedAttempt(20);
+        localStorage.setItem('scs_history', JSON.stringify([null, previous]));
+
+        const fresh = storedAttempt(21);
+        assert.equal(Storage.saveAttempt(fresh), true);
+
+        const raw = JSON.parse(localStorage.getItem('scs_history'));
+        assert.equal(raw.length, 3);
+        assert.equal(raw[0].id, fresh.id);
+        assert.equal(raw[1], null);
+        assert.equal(raw[2].id, previous.id);
+        assert.deepEqual(Storage.getHistory().map(item => item.id), [fresh.id, previous.id]);
+    });
+
+    test('un fallo de setItem no se propaga y devuelve false', () => {
+        globalThis.localStorage = createFailingStorage({ failOnSet: true });
+
+        assert.equal(Storage.saveAttempt(storedAttempt(30)), false);
+    });
+
+    test('el aviso de escritura fallida se emite una sola vez por clave', () => {
+        globalThis.localStorage = createFailingStorage({ failOnSet: true });
+        const warnings = [];
+        const originalWarn = console.warn;
+        console.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            assert.equal(Storage.setActiveQuiz({ questions: makeBank() }), false);
+            assert.equal(Storage.setActiveQuiz({ questions: makeBank() }), false);
+        } finally {
+            console.warn = originalWarn;
+        }
+
+        assert.equal(warnings.length, 1);
+    });
+
+    test('un fallo de removeItem en clearHistory devuelve false sin propagar', () => {
+        globalThis.localStorage = createFailingStorage({ failOnRemove: true });
+
+        assert.equal(Storage.clearHistory(), false);
     });
 });
