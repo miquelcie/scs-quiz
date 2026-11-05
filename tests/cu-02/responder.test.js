@@ -71,6 +71,13 @@ describe('CU-02 — Responder y navegar', () => {
         assert.equal(source.accumulatedMs, 4200);
     });
 
+    test('moveIndex cumple los casos de aceptación de 001', () => {
+        assert.equal(moveIndex(0, 5, 1), 1);
+        assert.equal(moveIndex(4, 5, 1), 4);
+        assert.equal(moveIndex(0, 5, -1), 0);
+        assert.equal(moveIndex(2, 0, 1), 0);
+    });
+
     test('moveIndex avanza, retrocede y se detiene en los límites', () => {
         assert.equal(moveIndex(1, 5, 1), 2);
         assert.equal(moveIndex(2, 5, -1), 1);

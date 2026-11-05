@@ -11,12 +11,12 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 | Dato | Valor |
 | --- | --- |
 | Rama | `hotfix_001` |
-| Último commit | `104b1c6` — *Merge branch 'feature_cambio_diseño' into main* (2026-11-03) |
+| Último commit | `bee8eef` — *feat: creacion de tasks.md y refactor* (2026-11-04) |
 | Preguntas en el banco | 300 (`SCS-RAD-001` … `SCS-RAD-300`) |
-| Tamaño aproximado | `index.html` 237 líneas · `styles.css` 1171 · `app.js` 397 · `engine.js` 94 · `questions.js` 7802 · `storage.js` 20 |
+| Tamaño aproximado | `index.html` 237 líneas · `styles.css` 1174 · `app.js` 423 · `engine.js` 112 · `questions.js` 7802 · `storage.js` 20 |
 | Dependencias / build | Ninguna dependencia. `package.json` solo declara ESM y `node --test`; sin build ni linter |
-| Tests | 35 tests en `tests/cu-01` … `tests/cu-06`, runner nativo de Node |
-| Specs | 6 propuestas en `specs/001-*` … `specs/006-*` (bugs detectados, pendientes de implementar) |
+| Tests | 43 tests en `tests/cu-01` … `tests/cu-06`, runner nativo de Node |
+| Specs | 6 propuestas en `specs/001-*` … `specs/006-*`; 001 implementada (2026-11-04), 002–006 pendientes |
 | Despliegue | Estático; basta con servir la carpeta por HTTP |
 | Tema visual | «Expediente de examen»: azul y blanco, serif documental + sans de interfaz |
 | Metodología | SDD (Spec-Driven Development), regida por `docs/constitution.md` v1.0.0 |
@@ -60,7 +60,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - Los exámenes en curso guardados antes del cambio de regla conservan en su snapshot el orden de opciones barajado; los intentos nuevos ya usan el orden fijo. El historial antiguo es inmutable.
 - La constitución v1.1.0 no estaba en el árbol de trabajo (sí en el historial de Git); el 2026-11-03 se creó `docs/constitution.md` v1.0.0 como norma vigente. Las referencias antiguas a la raíz quedan como histórico.
 - **`node --test` necesita ESM**: sin `"type": "module"` en `package.json`, Node interpreta los `.js` como CommonJS y falla con los `export`. No se puede importar `app.js` en tests porque registra `DOMContentLoaded` y usa `document`; por eso la lógica pura vive en `engine.js`.
-- **La recuperación no se puede validar solo con tests unitarios**: el snapshot guarda bien `currentIndex`, pero «Anterior/Siguiente» no llama a `persistActiveQuiz()`; ese fallo exige prueba de integración en navegador.
+- **La recuperación no se puede validar solo con tests unitarios**: el snapshot guarda bien `currentIndex` y el round-trip se cubre con tests, pero el enganche de «Anterior/Siguiente» y de los eventos del ciclo de vida exige prueba de integración en navegador. *(Resuelto el 2026-11-04 con 001: `navigate()`, `pagehide` y `visibilitychange` persisten el examen; verificado en Chrome DevTools.)*
 
 ## Deuda técnica e incidencias conocidas
 
@@ -69,7 +69,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.
 - Los tests cubren solo la lógica pura: no hay tests de integración DOM ni verificación automática de integridad del banco (ids duplicados, `correctOption` válido).
 - El modal no atrapa el foco dentro del diálogo (solo fija el foco inicial y permite cerrar con `Escape`).
-- Incidencias verificadas y pendientes (2026-11-03), con spec asociada: «Anterior/Siguiente» no persiste la pregunta actual (001); `btn-restart-from-res` no refresca «Último resultado» (002); iniciar un test sobrescribe el examen en curso (003); `localStorage` corrupto rompe el arranque (004); el banner de recuperación dice «1 respondidas» (005); el modal deja el foco oculto y no atrapa el foco (006).
+- Incidencias verificadas y pendientes (2026-11-03), con spec asociada: ~~«Anterior/Siguiente» no persiste la pregunta actual (001)~~ *(resuelta el 2026-11-04)*; `btn-restart-from-res` no refresca «Último resultado» (002); iniciar un test sobrescribe el examen en curso (003); `localStorage` corrupto rompe el arranque (004); el banner de recuperación dice «1 respondidas» (005); el modal deja el foco oculto y no atrapa el foco (006).
 
 ## Bitácora
 
@@ -82,3 +82,4 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **2026-11-03** — Rama `hotfix_001`: se extrae la lógica pura a `js/engine.js` (sin cambio de comportamiento), se añade `package.json` sin dependencias (`"type": "module"` + `npm test`) y se crean 35 tests en `tests/cu-01` … `tests/cu-06` para los casos de uso esenciales. Verificado con `npm test` (35/35) y con Chrome DevTools: flujo completo, historial, alias, consola limpia y sin desbordamiento a 375 px y 500 px.
 - **2026-11-03** — Se revisan los seis specs como QA y se crean sus `plan.md` (uno por spec) con trazabilidad RF, archivos, funciones puras, pseudocódigo, pintado, decisiones y estrategia de tests. Se aplican a los `spec.md` las enmiendas detectadas: definición de «examen activo» (001), «último intento» = `history[0]` y unificación de las tres salidas (002), criterio del banner, comparación de `scs_active` y relectura en el clic (003), validación frente a normalización, aviso de fallo de escritura y preservación del crudo (004), pluralización de `N` (005) y destinos de foco, `hidden` con regla CSS e `inert` sin `aria-hidden` (006). Cobertura verificada: 42/42 RF referenciados en los planes. Sin cambios de código; `npm test` sigue en 35/35.
 - **2026-11-03** — Se crean los seis `specs/**/tasks.md` con 49 tareas de 15–30 min, ordenadas por dependencia, con RF cubiertos y un «Hecho cuando» verificable por tarea. La cobertura se comprobó con un script: 42/42 RF aparecen en al menos una tarea de su spec. Sin cambios de código; los `tasks.md` quedan sin commitear.
+- **2026-11-04** — Implementado 001 (persistir la navegación): tests primero en CU-02/CU-03 (fallaron por exportaciones ausentes), luego `moveIndex()` e `isQuizInProgress()` en `engine.js`, `saveActiveQuizNow()`/`persistActiveQuiz()` con guarda de pantalla, `navigate()` conectado a «Anterior/Siguiente», listeners `visibilitychange`/`pagehide` y recorte del índice al recuperar. `node --test` → 43/43. Verificado en Chrome DevTools: recarga en la pregunta 3 (`currentIndex: 2`, tiempo conservado), retroceso a la 2 tras recargar, `pagehide`/`visibilitychange` suman tiempo, resultados e historial correctos, `scs_active` no se escribe fuera del examen, consola limpia y 375 px reales vía CDP sin desbordamiento. Las 7 tareas de `tasks.md` quedan marcadas y con evidencia de cierre.
