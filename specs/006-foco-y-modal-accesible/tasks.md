@@ -40,7 +40,7 @@
   - **Depende de:** T01
   - **Archivos:** `css/styles.css`
   - **Estimación:** 25 min
-  - **Hecho cuando:** `.modal-overlay[hidden] { display: none; }` vence a `display:flex`; existe una clase de bloqueo de scroll en `body`; las pantallas enfocadas muestran un indicador discreto; abrir el modal bloquea el scroll y cerrarlo lo restaura.
+  - **Hecho cuando:** `.modal-overlay[hidden] { display: none; }` vence a `display:flex`; existe una clase de bloqueo de scroll en `body`; las pantallas no muestran anillo visual al recibir foco programático (excepción acordada: el foco se mantiene para lectores de pantalla); abrir el modal bloquea el scroll y cerrarlo lo restaura.
 
 - [x] **T03 — Implementar `nextFocusIndex()` y sus tests**
   - **RF:** R5
@@ -117,3 +117,4 @@
 - **Destinos tras confirmar:** finalizar test → `#screen-results`; descartar examen → `#btn-start-quiz`; borrar historial → `#btn-clear-history`; eliminar intento → `#screen-history`; confirmar «Examen en curso» → `#screen-quiz`. En ningún caso el foco queda en el modal oculto.
 - **Consola:** sin mensajes ni warnings de «Blocked aria-hidden».
 - **Vista móvil:** 375 px reales vía CDP (`innerWidth: 375`, `scrollWidth: 375`); modal de 343 px dentro del viewport, scroll bloqueado al abrir y restaurado al cerrar, cuatro pantallas sin desbordamiento y `scrollY: 0` tras el foco programático.
+- **Excepción posterior (2026-11-05):** se retira el anillo azul de `.screen:focus`. La pantalla sigue recibiendo el foco programático (`tabindex="-1"` + `focus({ preventScroll: true })`) para que el lector de pantalla anuncie el cambio, pero no se pinta un borde visible. Los controles interactivos conservan su `:focus-visible`. Decisión de UX acordada con el usuario.

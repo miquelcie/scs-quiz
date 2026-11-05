@@ -184,10 +184,11 @@ footer {
     animation: screen-in 0.22s ease-out;
 }
 
-/* Foco programático en la pantalla activa: indicador discreto y sin layout. */
-.screen:focus {
-    outline: 2px solid var(--azul-trazo);
-    outline-offset: -2px;
+/* La pantalla es un destino de foco para lectores de pantalla, no un control:
+   no mostramos anillo visual al enfocarla (los controles conservan su :focus-visible). */
+.screen:focus,
+.screen:focus-visible {
+    outline: none;
 }
 
 @keyframes screen-in {
