@@ -77,7 +77,7 @@ node --test     # sin pasar por npm
 - `tests/cu-XX/` agrupa un caso de uso esencial; `tests/helpers/` contiene fixtures y un `localStorage` en memoria.
 - La lógica testeable vive en `js/engine.js` (pura, sin DOM). No importar `js/app.js` en tests: registra `DOMContentLoaded` y usa `document`.
 - `js/storage.js` se testea inyectando `globalThis.localStorage` antes de cada test.
-- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial, CU-06 alias y CU-07 ciclo de foco del modal (`nextFocusIndex`).
+- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial, CU-06 alias (`Storage` y funciones puras `sanitizeAlias`/`isValidAlias`) y CU-07 ciclo de foco del modal (`nextFocusIndex`).
 - Los tests no sustituyen la verificación manual con Chrome DevTools.
 
 ## Arquitectura y convenciones
@@ -97,7 +97,7 @@ node --test     # sin pasar por npm
 
 ### `js/engine.js`
 
-- Lógica pura sin DOM ni almacenamiento: `shuffle`, `buildQuiz`, `toggleAnswer`, `buildActiveQuizSnapshot`, `scoreQuiz`, `createAttempt` y formateadores (`formatTime`, `formatPct`, `formatDate`, `escapeHTML`).
+- Lógica pura sin DOM ni almacenamiento: `shuffle`, `buildQuiz`, `toggleAnswer`, `buildActiveQuizSnapshot`, `scoreQuiz`, `createAttempt`, validadores/normalizadores, alias (`ALIAS_MAX_LENGTH`, `ALIAS_PATTERN`, `sanitizeAlias`, `isValidAlias`) y formateadores (`formatTime`, `formatPct`, `formatDate`, `escapeHTML`).
 - `shuffle()` y `buildQuiz()` aceptan un RNG opcional para tests deterministas; en producción usan `Math.random`.
 - No mover aquí estado global, render ni eventos: eso pertenece a `app.js`.
 
@@ -112,6 +112,15 @@ Claves de `localStorage` (no cambiarlas sin migrar datos):
 | `scs_active`  | Examen en curso (recuperación)             |
 
 Mantener todo acceso a `localStorage` dentro de este módulo; no usarlo directamente en `app.js`.
+
+### Alias de usuario (CU-06)
+
+- Conjunto permitido: letras Unicode (tildes y `ñ` incluidas), dígitos, `_` y `-`; `ALIAS_PATTERN = /^[\p{L}\p{N}_-]+$/u`.
+- Sin espacios ni otros símbolos. Máximo 30 caracteres (`ALIAS_MAX_LENGTH`).
+- El alias vacío es válido porque es opcional; la interfaz muestra «Aspirante».
+- `sanitizeAlias()` filtra en vivo el valor del input, conserva el cursor y alimenta `state.alias`, `#display-alias` y `scs_alias`; nunca se persiste un valor bruto inválido.
+- Al cargar, el alias guardado se normaliza y se vuelve a persistir si cambió. Los intentos del historial no se reescriben.
+- El campo usa `aria-describedby="alias-help"`, `maxlength="30"`, `autocomplete="username"`, `autocapitalize="none"` y `spellcheck="false"`.
 
 ### Esquema del banco de preguntas
 
@@ -177,4 +186,4 @@ Reglas al añadir o editar preguntas:
 - `startQuiz()` acepta un `savedQuiz` opcional: es la ruta de recuperación. Si se toca el flujo de inicio, revisar también `btn-resume-quiz`.
 - `renderResults()` se reutiliza tanto al finalizar como al revisar un intento del historial; recibe un objeto `attempt` con `questionsSnapshot` y `userAnswersSnapshot`.
 - El historial guarda snapshots completos de preguntas y respuestas: cambios en el esquema del banco no rompen intentos antiguos, pero aumentan el tamaño en `localStorage`.
-- `state.alias` se actualiza al escribir en el input, no solo al iniciar el test.
+- `state.alias` se actualiza al escribir en el input, no solo al iniciar el test, y siempre con el valor ya saneado por `sanitizeAlias()`.

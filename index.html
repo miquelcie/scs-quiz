@@ -70,7 +70,18 @@
 
                         <div class="form-group">
                             <label class="form-label" for="input-alias">Alias o nombre <span class="form-optional">(opcional)</span></label>
-                            <input type="text" id="input-alias" class="form-input" placeholder="Ej.: María Rodríguez" maxlength="30">
+                            <input
+                                type="text"
+                                id="input-alias"
+                                class="form-input"
+                                placeholder="Ej.: maria_rodriguez"
+                                maxlength="30"
+                                autocomplete="username"
+                                autocapitalize="none"
+                                spellcheck="false"
+                                aria-describedby="alias-help"
+                            >
+                            <p class="form-hint" id="alias-help">Solo letras, números, guion y guion bajo. Sin espacios.</p>
                         </div>
 
                         <div class="form-group">

@@ -12,6 +12,7 @@ import {
     isQuizInProgress,
     moveIndex,
     nextFocusIndex,
+    sanitizeAlias,
     toggleAnswer
 } from './engine.js';
 
@@ -474,17 +475,32 @@ const finishQuiz = () => {
 
 // --- INICIALIZACIÓN Y BINDINGS ---
 document.addEventListener('DOMContentLoaded', () => {
-    state.alias = Storage.getAlias();
     const aliasInput = document.getElementById('input-alias');
+    const savedAlias = Storage.getAlias();
+    state.alias = sanitizeAlias(savedAlias);
     aliasInput.value = state.alias;
-    document.getElementById('display-alias').textContent = state.alias.trim() || 'Aspirante';
+    document.getElementById('display-alias').textContent = state.alias || 'Aspirante';
+    if (state.alias !== savedAlias) {
+        Storage.setAlias(state.alias);
+    }
     document.getElementById('available-info').textContent = `${QUESTION_BANK.length} preguntas disponibles con respuesta verificada.`;
     document.getElementById('hero-bank').textContent = `${QUESTION_BANK.length} preguntas verificadas`;
 
-    aliasInput.addEventListener('input', e => {
-        state.alias = e.target.value;
-        Storage.setAlias(state.alias);
-        document.getElementById('display-alias').textContent = state.alias.trim() || 'Aspirante';
+    aliasInput.addEventListener('input', () => {
+        const rawAlias = aliasInput.value;
+        const cleanAlias = sanitizeAlias(rawAlias);
+
+        if (rawAlias !== cleanAlias) {
+            // Conserva el cursor en la posición equivalente tras eliminar caracteres.
+            const caret = aliasInput.selectionStart ?? rawAlias.length;
+            const cleanPrefix = sanitizeAlias(rawAlias.slice(0, caret));
+            aliasInput.value = cleanAlias;
+            aliasInput.setSelectionRange(cleanPrefix.length, cleanPrefix.length);
+        }
+
+        state.alias = cleanAlias;
+        Storage.setAlias(cleanAlias);
+        document.getElementById('display-alias').textContent = cleanAlias || 'Aspirante';
     });
 
     const activeQuiz = Storage.getActiveQuiz();

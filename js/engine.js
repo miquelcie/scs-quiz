@@ -3,6 +3,29 @@
 
 const DEFAULT_ALIAS = 'Aspirante';
 
+// --- ALIAS DE USUARIO ---
+
+export const ALIAS_MAX_LENGTH = 30;
+
+// Letras Unicode (tildes, ñ), dígitos, guion y guion bajo. Sin espacios ni símbolos.
+export const ALIAS_PATTERN = /^[\p{L}\p{N}_-]+$/u;
+
+// Elimina cualquier carácter no permitido y recorta a la longitud máxima.
+// Los valores que no son cadena se tratan como alias vacío.
+export const sanitizeAlias = value => {
+    if (typeof value !== 'string') return '';
+    return value.replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, ALIAS_MAX_LENGTH);
+};
+
+// La cadena vacía es válida: el alias es opcional.
+export const isValidAlias = value => {
+    if (value === '') return true;
+    if (typeof value !== 'string') return false;
+    if (value.length > ALIAS_MAX_LENGTH) return false;
+    return ALIAS_PATTERN.test(value);
+};
+
+
 // Baraja una copia del array. `random` es inyectable para tests deterministas.
 export const shuffle = (array, random = Math.random) => {
     const arr = [...array];
