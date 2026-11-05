@@ -10,8 +10,8 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 
 | Dato | Valor |
 | --- | --- |
-| Rama | `hotfix_001` |
-| Último commit | `1b59d03` — *style: quitar el anillo de foco de las pantallas* (2026-11-05) |
+| Rama | `main` |
+| Último commit | `3a10609` — *feat: validar el alias como nombre de usuario* (2026-11-05) |
 | Preguntas en el banco | 300 (`SCS-RAD-001` … `SCS-RAD-300`) |
 | Tamaño aproximado | `index.html` 248 líneas · `styles.css` 1191 · `app.js` 563 · `engine.js` 308 · `questions.js` 7802 · `storage.js` 108 |
 | Dependencias / build | Ninguna dependencia. `package.json` solo declara ESM y `node --test`; sin build ni linter |
@@ -78,7 +78,7 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 
 ## Deuda técnica e incidencias conocidas
 
-- `README.md` referencia un archivo `LICENSE` que **no existe** en el repositorio.
+- ~~`README.md` referencia un archivo `LICENSE` que **no existe** en el repositorio.~~ *(resuelta el 2026-11-05: el README ya no anuncia licencia MIT ni enlaza a `LICENSE`; documenta que no hay archivo de licencia y el uso educativo del banco).*
 - ~~`Storage.getHistory()` hace `JSON.parse` sin `try/catch`: un valor corrupto en `scs_history` rompería la app. `getActiveQuiz()` ya tiene lectura defensiva mínima desde 2026-11-05; falta la normalización completa del plan 004.~~ *(resuelta el 2026-11-05 con 004: `readJSON`/`writeJSON`/`removeKey` y normalización en `engine.js`).*
 - No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.
 - Los tests cubren solo la lógica pura: no hay tests de integración DOM ni verificación automática de integridad del banco (ids duplicados, `correctOption` válido).
@@ -104,3 +104,4 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **2026-11-05** — Implementado 006 (gestión de foco y modal accesible): tests primero en CU-07 (8 casos de `nextFocusIndex`), luego la función pura en `engine.js`, la estructura `hidden`/`aria-labelledby`/`aria-describedby`/`tabindex="-1"` en `index.html`, las reglas CSS de `[hidden]`, `body.modal-open` y foco de pantalla, y en `app.js` el nuevo `showModal`/`closeModal` con `inert`, bloqueo de scroll, *focus trap*, `Escape` en `document`, render antes de `switchScreen()` y destinos de foco tras confirmar. `node --test` → 94/94. Verificado en Chrome DevTools: modal cerrado con `display:none` y botones sin rects; al abrir, foco en «Aceptar», `inert` en `header`/`main`/`footer`, `body.modal-open`, árbol de accesibilidad con `dialog "Borrar historial local"` y su descripción; `Tab` Aceptar→Cancelar→Aceptar y `Shift+Tab` a la inversa; `Escape` cierra desde Cancelar y restaura el disparador; finalizar test → `#screen-results`; eliminar intento → `#screen-history`; borrar historial → `#btn-clear-history`; descartar examen → `#btn-start-quiz`; confirmar «Examen en curso» → `#screen-quiz`; consola sin mensajes; 375 px reales vía CDP con modal de 343 px, scroll bloqueado y las cuatro pantallas sin desbordamiento. Las 11 tareas de `tasks.md` quedan marcadas y con evidencia de cierre.
 - **2026-11-05** — Ajuste de UX sobre 006: se retira el anillo azul de `.screen:focus` con `.screen:focus, .screen:focus-visible { outline: none; }`. El foco programático se conserva para lectores de pantalla, pero no se pinta borde en la pantalla; los controles interactivos mantienen su `:focus-visible`. Se anota la excepción en `tasks.md` y `MEMORY.md`.
 - **2026-11-05** — Implementado 007 (validación del alias): tests primero en CU-06 (14 casos de `sanitizeAlias`/`isValidAlias` y `ALIAS_MAX_LENGTH`; fallaron por exportaciones ausentes), luego las constantes y funciones puras en `engine.js`, el saneado en vivo con conservación del cursor y la normalización del alias heredado en `app.js`, y el campo con `aria-describedby`, ayuda visible y atributos de teclado en `index.html`. `node --test` → 107/107. Verificado en Chrome DevTools: `María Rodríguez` → `MaríaRodríguez`, `ana@example.com` → `anaexamplecom`, emoji eliminado, tildes/`ñ` conservadas, cursor en la posición equivalente al filtrar en medio, 31 caracteres → 30, alias vacío → «Aspirante», persistencia tras recarga y normalización de `María Rodríguez@2024` → `MaríaRodríguez2024` sin tocar el alias antiguo del historial; árbol de accesibilidad con `textbox` y `description` de ayuda; consola limpia; 375 px reales vía CDP con las cuatro pantallas a 343 px y sin desbordamiento. Las 8 tareas de `tasks.md` quedan marcadas.
+- **2026-11-05** — Actualizado `README.md` con el estado real del proyecto: 300 preguntas, 107 tests, alias validado, recuperación y protección del examen en curso, historial con snapshots, accesibilidad, ejecución obligatoria por HTTP, estructura del proyecto, privacidad y documentación de desarrollo. Se retira la referencia al `LICENSE` inexistente y se documenta el uso educativo del banco.
