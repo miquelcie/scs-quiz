@@ -13,6 +13,8 @@ import {
     toggleAnswer
 } from './engine.js';
 
+const DISCARD_ACTIVE_QUIZ_MESSAGE = 'Hay un examen en curso con respuestas guardadas. Si empiezas uno nuevo, se descartará y no podrás recuperarlo.';
+
 // --- ESTADO Y TIMER ---
 const state = {
     alias: '',
@@ -316,6 +318,21 @@ const renderHistoryScreen = () => {
 };
 
 // --- FLUJO DE EXAMEN ---
+const confirmDiscardActiveQuiz = () => {
+    Storage.clearActiveQuiz();
+    startQuiz();
+};
+
+// Relee el examen activo en el clic para no decidir con un banner obsoleto.
+const handleStartQuiz = () => {
+    const activeQuiz = Storage.getActiveQuiz();
+    if (!activeQuiz) {
+        startQuiz();
+        return;
+    }
+    showModal('Examen en curso', DISCARD_ACTIVE_QUIZ_MESSAGE, confirmDiscardActiveQuiz);
+};
+
 const startQuiz = (savedQuiz = null) => {
     if (savedQuiz) {
         state.questions = savedQuiz.questions;
@@ -393,8 +410,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('recovery-banner').hidden = false;
     }
 
-    document.getElementById('btn-start-quiz').addEventListener('click', () => startQuiz());
-    document.getElementById('btn-resume-quiz').addEventListener('click', () => startQuiz(Storage.getActiveQuiz()));
+    document.getElementById('btn-start-quiz').addEventListener('click', handleStartQuiz);
+    document.getElementById('btn-resume-quiz').addEventListener('click', () => {
+        const activeQuiz = Storage.getActiveQuiz();
+        if (activeQuiz) startQuiz(activeQuiz);
+        else startQuiz();
+    });
     document.getElementById('btn-discard-quiz').addEventListener('click', () => {
         showModal("Descartar examen", "¿Deseas borrar el cuestionario interrumpido?", () => {
             Storage.clearActiveQuiz();

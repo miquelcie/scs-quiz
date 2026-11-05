@@ -77,4 +77,37 @@ describe('CU-03 — Recuperar examen interrumpido', () => {
 
         assert.equal(Storage.getActiveQuiz(), null);
     });
+
+    test('descartar y guardar deja el examen nuevo y no el anterior', () => {
+        const previous = {
+            questions: makeBank(),
+            userAnswers: { 'T-001': 'B' },
+            currentIndex: 1,
+            accumulatedMs: 12000
+        };
+        const fresh = {
+            questions: makeBank(),
+            userAnswers: {},
+            currentIndex: 0,
+            accumulatedMs: 0
+        };
+
+        Storage.setActiveQuiz(previous);
+        Storage.clearActiveQuiz();
+        Storage.setActiveQuiz(fresh);
+
+        assert.deepEqual(Storage.getActiveQuiz(), fresh);
+    });
+
+    test('un scs_active con JSON inválido se lee como null', () => {
+        localStorage.setItem('scs_active', '{');
+
+        assert.equal(Storage.getActiveQuiz(), null);
+    });
+
+    test('un scs_active con forma inválida se lee como null', () => {
+        localStorage.setItem('scs_active', JSON.stringify({ questions: [] }));
+
+        assert.equal(Storage.getActiveQuiz(), null);
+    });
 });
