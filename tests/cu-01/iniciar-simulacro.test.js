@@ -54,6 +54,14 @@ describe('CU-01 — Iniciar simulacro', () => {
         assert.equal(quiz.length, bank.length);
     });
 
+    test('buildQuiz con count inválido usa todo el banco disponible', () => {
+        const bank = makeBank();
+        assert.equal(buildQuiz(bank, 'foo').length, bank.length);
+        assert.equal(buildQuiz(bank, NaN).length, bank.length);
+        assert.equal(buildQuiz(bank, 0).length, bank.length);
+        assert.equal(buildQuiz(bank, -3).length, bank.length);
+    });
+
     test('shuffle conserva todos los elementos y es determinista con RNG inyectado', () => {
         const bank = makeBank();
         const a = shuffle(bank, () => 0);
