@@ -2,6 +2,9 @@ import { normalizeActiveQuiz, normalizeHistory } from './engine.js';
 
 const KEYS = { ALIAS: 'scs_alias', HISTORY: 'scs_history', ACTIVE: 'scs_active' };
 
+// Máximo de intentos que se conservan cuando el guardado rota el historial.
+export const HISTORY_LIMIT = 50;
+
 // Un aviso por clave y sesión: evita inundar la consola sin ocultar el fallo.
 const warnedKeys = new Set();
 
@@ -81,9 +84,23 @@ export const Storage = {
         const raw = readJSON(KEYS.HISTORY, []);
         return Array.isArray(raw) ? raw : [];
     },
-    saveAttempt: (attempt) => {
+    // Longitud del historial crudo, incluidas las entradas inválidas; nunca lanza.
+    getHistoryLength: () => Storage.readRawHistory().length,
+    saveAttempt: (attempt, { rotate = false } = {}) => {
         const history = Storage.readRawHistory();
         history.unshift(attempt);
+
+        // La rotación elimina la última entrada representable; las inválidas se conservan
+        // para no reescribir el crudo (decisión de 004).
+        if (rotate && history.length > HISTORY_LIMIT) {
+            for (let i = history.length - 1; i >= 0; i--) {
+                if (history[i] !== null && typeof history[i] === 'object') {
+                    history.splice(i, 1);
+                    break;
+                }
+            }
+        }
+
         return writeJSON(KEYS.HISTORY, history);
     },
     deleteAttempt: (id) => {

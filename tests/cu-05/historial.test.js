@@ -6,7 +6,7 @@ import {
     normalizeAttempt,
     normalizeHistory
 } from '../../js/engine.js';
-import { Storage } from '../../js/storage.js';
+import { HISTORY_LIMIT, Storage } from '../../js/storage.js';
 import { makeBank } from '../helpers/fixtures.js';
 import { createMemoryStorage } from '../helpers/memory-storage.js';
 
@@ -191,5 +191,104 @@ describe('CU-05 — Historial crudo y datos no confiables', () => {
             escapeHTML('<img src=x onerror="alert(1)">'),
             '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;'
         );
+    });
+});
+
+describe('CU-05 — Límite del historial', () => {
+    // Siembra `count` intentos válidos, del más antiguo (now=1) al más reciente.
+    const seedHistory = count => {
+        for (let now = 1; now <= count; now++) Storage.saveAttempt(storedAttempt(now));
+    };
+
+    test('el límite del historial es 50 intentos', () => {
+        assert.equal(HISTORY_LIMIT, 50);
+    });
+
+    test('getHistoryLength devuelve 0 sin historial', () => {
+        assert.equal(Storage.getHistoryLength(), 0);
+    });
+
+    test('getHistoryLength cuenta las entradas guardadas', () => {
+        seedHistory(3);
+
+        assert.equal(Storage.getHistoryLength(), 3);
+    });
+
+    test('getHistoryLength no lanza con el historial corrupto', () => {
+        localStorage.setItem('scs_history', '{');
+
+        assert.equal(Storage.getHistoryLength(), 0);
+    });
+
+    test('getHistoryLength devuelve 0 si el nivel superior no es un array', () => {
+        localStorage.setItem('scs_history', '{"id":"att_1"}');
+
+        assert.equal(Storage.getHistoryLength(), 0);
+    });
+
+    test('getHistoryLength cuenta también las entradas inválidas del crudo', () => {
+        localStorage.setItem('scs_history', JSON.stringify([null, storedAttempt(1), { id: 'roto' }]));
+
+        assert.equal(Storage.getHistoryLength(), 3);
+    });
+
+    test('sin rotación se conservan todas las entradas aunque superen el límite', () => {
+        seedHistory(HISTORY_LIMIT);
+
+        assert.equal(Storage.saveAttempt(storedAttempt(HISTORY_LIMIT + 1)), true);
+        assert.equal(Storage.getHistoryLength(), HISTORY_LIMIT + 1);
+    });
+
+    test('la rotación elimina el intento más antiguo al superar el límite', () => {
+        seedHistory(HISTORY_LIMIT);
+
+        assert.equal(
+            Storage.saveAttempt(storedAttempt(HISTORY_LIMIT + 1), { rotate: true }),
+            true
+        );
+
+        const history = Storage.getHistory();
+        assert.equal(history.length, HISTORY_LIMIT);
+        assert.equal(history[0].id, `att_${HISTORY_LIMIT + 1}`);
+        assert.equal(history[history.length - 1].id, 'att_2');
+        assert.ok(!history.some(item => item.id === 'att_1'));
+    });
+
+    test('la rotación no elimina nada mientras no se supere el límite', () => {
+        seedHistory(3);
+
+        assert.equal(Storage.saveAttempt(storedAttempt(4), { rotate: true }), true);
+        assert.equal(Storage.getHistoryLength(), 4);
+        assert.deepEqual(
+            Storage.getHistory().map(item => item.id),
+            ['att_4', 'att_3', 'att_2', 'att_1']
+        );
+    });
+
+    test('la rotación conserva las entradas inválidas del crudo', () => {
+        const valid = [];
+        for (let now = HISTORY_LIMIT; now >= 1; now--) valid.push(storedAttempt(now));
+        localStorage.setItem('scs_history', JSON.stringify([...valid, null]));
+
+        assert.equal(Storage.saveAttempt(storedAttempt(HISTORY_LIMIT + 1), { rotate: true }), true);
+
+        const raw = JSON.parse(localStorage.getItem('scs_history'));
+        assert.equal(raw.length, HISTORY_LIMIT + 1);
+        assert.equal(raw[raw.length - 1], null);
+        assert.equal(raw[0].id, `att_${HISTORY_LIMIT + 1}`);
+
+        const history = Storage.getHistory();
+        assert.equal(history.length, HISTORY_LIMIT);
+        assert.equal(history[history.length - 1].id, 'att_2');
+    });
+
+    test('el intento guardado con rotación queda primero y es recuperable', () => {
+        seedHistory(HISTORY_LIMIT);
+        const fresh = storedAttempt(HISTORY_LIMIT + 1);
+
+        Storage.saveAttempt(fresh, { rotate: true });
+
+        assert.equal(Storage.getHistory()[0].id, fresh.id);
+        assert.equal(Storage.getHistory()[0].scorePct, fresh.scorePct);
     });
 });

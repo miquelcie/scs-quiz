@@ -10,13 +10,13 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 
 | Dato | Valor |
 | --- | --- |
-| Rama | `main` |
-| Último commit | `3a10609` — *feat: validar el alias como nombre de usuario* (2026-11-05) |
+| Rama | `feature_mejoras_medias` (desde `main`) |
+| Último commit | `96d1f49` — *cambio de favicon.ico* (2026-11-05) |
 | Preguntas en el banco | 300 (`SCS-RAD-001` … `SCS-RAD-300`) |
-| Tamaño aproximado | `index.html` 248 líneas · `styles.css` 1191 · `app.js` 563 · `engine.js` 308 · `questions.js` 7802 · `storage.js` 108 |
+| Tamaño aproximado | `index.html` 250 líneas · `styles.css` 1205 · `app.js` 588 · `engine.js` 320 · `questions.js` 7802 · `storage.js` 108 |
 | Dependencias / build | Ninguna dependencia. `package.json` solo declara ESM y `node --test`; sin build ni linter |
-| Tests | 107 tests en `tests/cu-01` … `tests/cu-07`, runner nativo de Node |
-| Specs | 7 propuestas en `specs/001-*` … `specs/007-*`; 001–007 implementadas (2026-11-05) |
+| Tests | 109 tests en `tests/cu-01` … `tests/cu-07`, runner nativo de Node |
+| Specs | 9 propuestas en `specs/001-*` … `specs/009-*`; 001–008 implementadas, 009 pendiente |
 | Despliegue | Estático; basta con servir la carpeta por HTTP |
 | Tema visual | «Expediente de examen»: azul y blanco, serif documental + sans de interfaz |
 | Metodología | SDD (Spec-Driven Development), regida por `docs/constitution.md` v1.0.0 |
@@ -108,3 +108,4 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **2026-11-05** — Creado `docs/informe-mejoras.md` con el informe de mejoras del proyecto (almacenamiento, accesibilidad, UX, robustez, seguridad, mantenibilidad, tests, PWA), priorizado por impacto y esfuerzo, y con la lista de elementos que no deben tocarse. Sin cambios de código.
 - **2026-11-05** — Creado el spec `008-Mejoras` (`specs/008-Mejoras/spec.md`, `plan.md`, `tasks.md`) que agrupa los puntos rápidos del informe (1.3, 2.1, 2.2, 2.3, 2.5, 3.1, 3.6, 4.2, 4.3, 4.4, 5.1). Sin cambios de código.
 - **2026-11-05** — Implementado spec 008: validación de `buildQuiz`/`scoreQuiz`, teclado por flechas en el radiogrupo, `aria-live` en el enunciado, `prefers-reduced-motion`, foco tras clic, `beforeunload`, `autocorrect="off"`, CSP, pluralización en `finishQuiz` y manejador robusto en el historial. Tests 109/109. Verificado en Chrome DevTools (flujo, consola, 375 px).
+- **2026-11-05** — Creado el spec `009-Mejoras-medias` (`specs/009-Mejoras-medias/spec.md`, `plan.md`, `tasks.md`) en la rama `feature_mejoras_medias`, con el bloque «Medias» del informe (1.1, 2.4, 3.2, 3.4, 3.5, 6.1–6.4, 7.2): límite de historial con rotación confirmada, auditoría de contraste, un solo control de finalización, historial paginado con «Cargar más», impresión de resultados y división modular de `app.js`. Sin cambios de código. Se corrige la cifra del informe sobre `--tinta-suave`: mide ≈5.4:1 sobre `--papel` (cumple AA), no 4.4:1; el punto 2.4 queda como auditoría registrada, no como corrección obligatoria.

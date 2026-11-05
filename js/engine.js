@@ -244,6 +244,32 @@ export const formatRecoveryInfo = (questions, answers) => {
     return `${base} (${pluralize(answered, 'respondida', 'respondidas')}).`;
 };
 
+// --- PAGINACIÓN ---
+
+export const HISTORY_PAGE_SIZE = 10;
+
+// Pagina una lista sin mutarla. `page` es 1-based y se recorta al rango válido.
+export const paginate = (list, page = 1, pageSize = HISTORY_PAGE_SIZE) => {
+    const items = Array.isArray(list) ? list : [];
+    const total = items.length;
+    const size = Number.isInteger(pageSize) && pageSize > 0 ? pageSize : HISTORY_PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    const current = Number.isInteger(page)
+        ? Math.min(Math.max(page, 1), totalPages)
+        : 1;
+    const start = (current - 1) * size;
+
+    return {
+        items: items.slice(start, start + size),
+        page: current,
+        pageSize: size,
+        total,
+        totalPages,
+        hasMore: current < totalPages,
+        remaining: Math.max(0, total - current * size)
+    };
+};
+
 // Corrección del cuestionario.
 export const scoreQuiz = (questions, answers) => {
     if (!Array.isArray(questions) || questions.length === 0) {
