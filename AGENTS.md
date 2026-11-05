@@ -41,6 +41,7 @@ js/questions.js     # Banco de preguntas (export const QUESTION_BANK)
 js/storage.js       # Wrapper de localStorage (export const Storage)
 specs/NNN-*/        # Especificaciones SDD (una carpeta por cambio)
 tests/cu-XX/        # Tests de los casos de uso esenciales
+tests/cu-07/        # Ciclo de foco del modal (nextFocusIndex)
 tests/helpers/      # Fixtures y localStorage en memoria
 package.json        # Solo ESM + script de test; sin dependencias
 images/favicon.ico
@@ -76,7 +77,7 @@ node --test     # sin pasar por npm
 - `tests/cu-XX/` agrupa un caso de uso esencial; `tests/helpers/` contiene fixtures y un `localStorage` en memoria.
 - La lógica testeable vive en `js/engine.js` (pura, sin DOM). No importar `js/app.js` en tests: registra `DOMContentLoaded` y usa `document`.
 - `js/storage.js` se testea inyectando `globalThis.localStorage` antes de cada test.
-- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial y CU-06 alias.
+- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial, CU-06 alias y CU-07 ciclo de foco del modal (`nextFocusIndex`).
 - Los tests no sustituyen la verificación manual con Chrome DevTools.
 
 ## Arquitectura y convenciones
@@ -91,7 +92,7 @@ node --test     # sin pasar por npm
 - Cada respuesta llama a `persistActiveQuiz()` para permitir la recuperación tras una recarga.
 - `startQuiz()` baraja **solo el orden de las preguntas**. Las opciones de cada pregunta conservan el orden exacto de `questions.js`: no aplicar `shuffle` a `q.options`.
 - Las opciones del examen son accesibles por teclado: `role="radio"`, `tabindex="0"` y selección con `Enter`/`Espacio`. `renderQuestion(focusOptionIndex)` conserva el foco tras volver a renderizar.
-- El modal de confirmación es propio (`showModal(title, msg, onConfirm)` + `#custom-modal`); no usar `alert`/`confirm`/`prompt`. Gestiona `aria-hidden`, foco inicial, `Escape` y restauración del foco.
+- El modal de confirmación es propio (`showModal(title, msg, onConfirm)` + `#custom-modal`); no usar `alert`/`confirm`/`prompt`. Se oculta con `hidden`, usa `aria-labelledby`/`aria-describedby`, aplica `inert` al fondo (`header`, `main`, `footer`), bloquea el scroll con `body.modal-open`, enfoca «Aceptar», atrapa `Tab`/`Shift+Tab` con `nextFocusIndex()` y escucha `Escape` en `document` mientras está abierto. No se usa `aria-hidden` dinámico.
 - Comentarios y textos de UI **en español**.
 
 ### `js/engine.js`

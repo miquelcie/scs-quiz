@@ -39,7 +39,7 @@
         </div>
 
         <!-- 1. PANTALLA PRINCIPAL -->
-        <section id="screen-home" class="screen active" aria-label="Menú principal">
+        <section id="screen-home" class="screen active" tabindex="-1" aria-label="Menú principal">
             <div class="hero">
                 <div class="hero-copy">
                     <h2 class="hero-title">Técnico/a Especialista en Radiodiagnóstico</h2>
@@ -133,7 +133,7 @@
         </section>
 
         <!-- 2. PANTALLA CUESTIONARIO -->
-        <section id="screen-quiz" class="screen" aria-label="Examen en curso">
+        <section id="screen-quiz" class="screen" tabindex="-1" aria-label="Examen en curso">
             <div class="quiz-bar">
                 <div class="quiz-progress">
                     <span class="quiz-count" aria-live="polite">Pregunta <strong id="q-current">1</strong> de <strong id="q-total">25</strong></span>
@@ -166,7 +166,7 @@
         </section>
 
         <!-- 3. PANTALLA RESULTADOS -->
-        <section id="screen-results" class="screen" aria-label="Resultados del examen">
+        <section id="screen-results" class="screen" tabindex="-1" aria-label="Resultados del examen">
             <div class="results-head">
                 <p class="results-label">Resultado del simulacro</p>
                 <div id="res-score-pct" class="results-score">0,00 %</div>
@@ -206,7 +206,7 @@
         </section>
 
         <!-- 4. PANTALLA HISTORIAL -->
-        <section id="screen-history" class="screen" aria-label="Historial de exámenes">
+        <section id="screen-history" class="screen" tabindex="-1" aria-label="Historial de exámenes">
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Historial de intentos</h2>
@@ -221,7 +221,7 @@
         <p>Simulador de examen SCS. Funciona sin conexión y guarda tus datos solo en este navegador.</p>
     </footer>
 
-    <div id="custom-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div id="custom-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-msg" hidden>
         <div class="modal">
             <div id="modal-title" class="modal-header">Confirmación</div>
             <div id="modal-msg" class="modal-body">¿Estás seguro de continuar?</div>

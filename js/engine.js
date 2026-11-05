@@ -47,6 +47,21 @@ export const moveIndex = (currentIndex, total, delta) => {
     return Math.min(Math.max(current + step, 0), length - 1);
 };
 
+// Calcula el siguiente control del ciclo de foco. Sin controles devuelve 0 y
+// un índice inválido se normaliza al primero antes de aplicar el paso.
+export const nextFocusIndex = (currentIndex, total, backward = false) => {
+    const length = Number.isInteger(total) && total > 0 ? total : 0;
+    if (length === 0) return 0;
+    if (length === 1) return 0;
+
+    const current =
+        Number.isInteger(currentIndex) && currentIndex >= 0 && currentIndex < length
+            ? currentIndex
+            : 0;
+    const step = backward ? -1 : 1;
+    return (current + step + length) % length;
+};
+
 // Verdadero solo si hay un cuestionario y el índice es un entero dentro de rango.
 export const isQuizInProgress = (questions, currentIndex) =>
     Array.isArray(questions) &&

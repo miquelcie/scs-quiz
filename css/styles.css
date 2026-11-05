@@ -184,6 +184,12 @@ footer {
     animation: screen-in 0.22s ease-out;
 }
 
+/* Foco programático en la pantalla activa: indicador discreto y sin layout. */
+.screen:focus {
+    outline: 2px solid var(--azul-trazo);
+    outline-offset: -2px;
+}
+
 @keyframes screen-in {
     from {
         opacity: 0;
@@ -1062,6 +1068,16 @@ footer {
 }
 
 /* --- Modal ------------------------------------------------------------- */
+
+/* Bloqueo de scroll del fondo mientras el diálogo está abierto. */
+body.modal-open {
+    overflow: hidden;
+}
+
+/* El modal cerrado no ocupa espacio: `hidden` debe vencer al display:flex. */
+.modal-overlay[hidden] {
+    display: none;
+}
 
 .modal-overlay {
     position: fixed;

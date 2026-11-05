@@ -11,6 +11,7 @@ import {
     formatTime,
     isQuizInProgress,
     moveIndex,
+    nextFocusIndex,
     toggleAnswer
 } from './engine.js';
 
@@ -73,47 +74,104 @@ const navigate = delta => {
 };
 
 // --- NAVEGACIÓN Y MODAL ---
+const BACKGROUND_REGIONS = ['header', 'main', 'footer'];
+const supportsInert = typeof HTMLElement !== 'undefined' && 'inert' in HTMLElement.prototype;
+let modalTrigger = null;
+let modalConfirmHandler = null;
+
+const applyBackgroundInert = enabled => {
+    if (!supportsInert) return;
+    BACKGROUND_REGIONS.forEach(selector => {
+        const region = document.querySelector(selector);
+        if (region) region.inert = enabled;
+    });
+};
+
+const focusActiveScreen = () => {
+    document.querySelector('.screen.active')?.focus({ preventScroll: true });
+};
+
+const isVisible = element =>
+    Boolean(element && element.isConnected && element.getClientRects().length > 0);
+
 const switchScreen = screenId => {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(`screen-${screenId}`)?.classList.add('active');
+    const screen = document.getElementById(`screen-${screenId}`);
+    screen?.classList.add('active');
     window.scrollTo(0, 0);
+    screen?.focus({ preventScroll: true });
+};
+
+const cancelModalHandler = () => closeModal(true);
+
+const modalKeydownHandler = event => {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        closeModal(true);
+        return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const controls = [
+        document.getElementById('modal-cancel'),
+        document.getElementById('modal-confirm')
+    ];
+    const current = controls.indexOf(document.activeElement);
+    const next = nextFocusIndex(current === -1 ? 0 : current, controls.length, event.shiftKey);
+    event.preventDefault();
+    controls[next]?.focus({ preventScroll: true });
+};
+
+const closeModal = (restoreFocus = true) => {
+    const modal = document.getElementById('custom-modal');
+    if (!modal || modal.hidden) return;
+
+    const trigger = modalTrigger;
+    modal.hidden = true;
+    modal.classList.remove('active');
+    applyBackgroundInert(false);
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', modalKeydownHandler);
+    document.getElementById('modal-cancel')?.removeEventListener('click', cancelModalHandler);
+    document.getElementById('modal-confirm')?.removeEventListener('click', modalConfirmHandler);
+
+    modalTrigger = null;
+    modalConfirmHandler = null;
+
+    // Nunca dejar el foco en un diálogo que acaba de ocultarse.
+    if (modal.contains(document.activeElement)) document.activeElement.blur();
+
+    if (!restoreFocus) return;
+    if (isVisible(trigger)) {
+        trigger.focus({ preventScroll: true });
+        return;
+    }
+    focusActiveScreen();
 };
 
 const showModal = (title, msg, onConfirm) => {
     const modal = document.getElementById('custom-modal');
     const btnConfirm = document.getElementById('modal-confirm');
     const btnCancel = document.getElementById('modal-cancel');
-    const previouslyFocused = document.activeElement;
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-msg').textContent = msg;
 
-    const cleanup = (restoreFocus = true) => {
-        modal.classList.remove('active');
-        modal.setAttribute('aria-hidden', 'true');
-        btnConfirm.removeEventListener('click', handleConfirm);
-        btnCancel.removeEventListener('click', cleanup);
-        modal.removeEventListener('keydown', handleKeydown);
-        if (restoreFocus) previouslyFocused?.focus?.();
-    };
-
-    const handleConfirm = () => {
-        cleanup(false);
+    modalTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    modalConfirmHandler = () => {
+        closeModal(false);
         onConfirm();
     };
 
-    const handleKeydown = e => {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            cleanup();
-        }
-    };
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-msg').textContent = msg;
 
-    btnConfirm.addEventListener('click', handleConfirm);
-    btnCancel.addEventListener('click', cleanup);
-    modal.addEventListener('keydown', handleKeydown);
+    btnConfirm.addEventListener('click', modalConfirmHandler);
+    btnCancel.addEventListener('click', cancelModalHandler);
+    document.addEventListener('keydown', modalKeydownHandler);
+
+    modal.hidden = false;
     modal.classList.add('active');
-    modal.setAttribute('aria-hidden', 'false');
-    btnConfirm.focus();
+    applyBackgroundInert(true);
+    document.body.classList.add('modal-open');
+    btnConfirm.focus({ preventScroll: true });
 };
 
 // Aviso de una operación de almacenamiento que no se pudo completar.
@@ -181,7 +239,6 @@ const renderQuestion = (focusOptionIndex = null) => {
 };
 
 const renderResults = (attempt) => {
-    switchScreen('results');
     document.getElementById('results-candidate').textContent = `Aspirante: ${String(attempt.candidateAlias ?? 'Aspirante')}. ${formatDate(attempt.date)}`;
     document.getElementById('res-score-pct').textContent = formatPct(Number(attempt.scorePct));
     document.getElementById('res-hits').textContent = Number(attempt.hits);
@@ -231,6 +288,7 @@ const renderResults = (attempt) => {
 
     container.innerHTML = '';
     container.appendChild(fragment);
+    switchScreen('results');
 };
 
 const renderLastAttempt = () => {
@@ -262,11 +320,11 @@ const returnHome = () => {
 };
 
 const renderHistoryScreen = () => {
-    switchScreen('history');
     const history = Storage.getHistory();
     const container = document.getElementById('history-list-container');
     if (!history.length) {
         container.innerHTML = `<p class="empty-state is-centered">Todavía no hay intentos guardados. Completa un simulacro y aparecerá aquí.</p>`;
+        switchScreen('history');
         return;
     }
 
@@ -326,6 +384,8 @@ const renderHistoryScreen = () => {
             });
         });
     });
+
+    switchScreen('history');
 };
 
 // --- FLUJO DE EXAMEN ---
@@ -367,9 +427,9 @@ const startQuiz = (savedQuiz = null) => {
     }
 
     document.getElementById('recovery-banner').hidden = true;
-    switchScreen('quiz');
     startTimer();
     renderQuestion();
+    switchScreen('quiz');
 };
 
 const finishQuiz = () => {
@@ -446,6 +506,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal("Descartar examen", "¿Deseas borrar el cuestionario interrumpido?", () => {
             Storage.clearActiveQuiz();
             document.getElementById('recovery-banner').hidden = true;
+            // Destino de foco tras confirmar (R10): la acción principal de la portada.
+            document.getElementById('btn-start-quiz').focus({ preventScroll: true });
         });
     });
 
@@ -476,6 +538,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             renderLastAttempt();
+            // Destino de foco tras confirmar (R10): el botón que originó la acción.
+            document.getElementById('btn-clear-history').focus({ preventScroll: true });
         });
     });
 
