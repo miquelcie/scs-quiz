@@ -12,6 +12,7 @@ import {
     isQuizInProgress,
     moveIndex,
     nextFocusIndex,
+    pluralize,
     sanitizeAlias,
     toggleAnswer
 } from './engine.js';
@@ -214,14 +215,32 @@ const renderQuestion = (focusOptionIndex = null) => {
 
         item.addEventListener('click', () => {
             selectAnswer();
-            renderQuestion();
+            renderQuestion(idx);
         });
 
         item.addEventListener('keydown', e => {
+            const optionCount = q.options.length;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 selectAnswer();
                 renderQuestion(idx);
+                return;
+            }
+
+            let target = null;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                target = (idx + 1) % optionCount;
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                target = (idx - 1 + optionCount) % optionCount;
+            } else if (e.key === 'Home') {
+                target = 0;
+            } else if (e.key === 'End') {
+                target = optionCount - 1;
+            }
+
+            if (target !== null) {
+                e.preventDefault();
+                container.children[target]?.focus({ preventScroll: true });
             }
         });
 
@@ -365,7 +384,7 @@ const renderHistoryScreen = () => {
 
     container.querySelectorAll('.btn-view').forEach(btn => {
         btn.addEventListener('click', e => {
-            const found = history.find(h => h.id === e.target.dataset.id);
+            const found = history.find(h => h.id === e.currentTarget.dataset.id);
             if (found) renderResults(found);
         });
     });
@@ -373,7 +392,7 @@ const renderHistoryScreen = () => {
     container.querySelectorAll('.btn-del').forEach(btn => {
         btn.addEventListener('click', e => {
             showModal("Eliminar intento", "¿Deseas eliminar este registro?", () => {
-                if (!Storage.deleteAttempt(e.target.dataset.id)) {
+                if (!Storage.deleteAttempt(e.currentTarget.dataset.id)) {
                     showStorageError(
                         'No se pudo borrar',
                         'No se pudo eliminar el intento. El historial guardado no se ha modificado.'
@@ -466,7 +485,7 @@ const finishQuiz = () => {
     };
 
     if (pending > 0) {
-        const pendingLabel = pending === 1 ? '1 pregunta sin responder' : `${pending} preguntas sin responder`;
+        const pendingLabel = pluralize(pending, 'pregunta sin responder', 'preguntas sin responder');
         showModal("Preguntas pendientes", `Tienes ${pendingLabel} de ${total}. ¿Deseas finalizar de todos modos?`, processFinish);
     } else {
         processFinish();
@@ -538,6 +557,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.hidden) persistActiveQuiz();
     });
     window.addEventListener('pagehide', persistActiveQuiz);
+
+    window.addEventListener('beforeunload', event => {
+        if (!isQuizInProgress(state.questions, state.currentIndex)) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
 
     document.getElementById('btn-finish-quiz').addEventListener('click', finishQuiz);
     document.getElementById('btn-restart-from-res').addEventListener('click', returnHome);

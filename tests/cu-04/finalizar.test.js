@@ -59,6 +59,11 @@ describe('CU-04 — Finalizar y corregir', () => {
         assert.deepEqual(result, { hits: 0, errors: 0, unanswered: 4, scorePct: 0 });
     });
 
+    test('scoreQuiz con banco vacío devuelve ceros sin lanzar', () => {
+        assert.deepEqual(scoreQuiz([], {}), { hits: 0, errors: 0, unanswered: 0, scorePct: 0 });
+        assert.deepEqual(scoreQuiz(null, {}), { hits: 0, errors: 0, unanswered: 0, scorePct: 0 });
+    });
+
     test('formatea el porcentaje con coma decimal', () => {
         assert.equal(formatPct(28), '28,00 %');
         assert.equal(formatPct(28.000000000000004), '28,00 %');
