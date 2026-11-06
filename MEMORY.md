@@ -11,12 +11,12 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 | Dato | Valor |
 | --- | --- |
 | Rama | `feature_mejoras_medias` (desde `main`) |
-| Último commit | `96d1f49` — *cambio de favicon.ico* (2026-11-05) |
+| Último commit | `b5123a9` — *paginación pura y límite de historial (Fase A)*; el resto de 009 queda sin commitear (2026-11-06) |
 | Preguntas en el banco | 300 (`SCS-RAD-001` … `SCS-RAD-300`) |
-| Tamaño aproximado | `index.html` 250 líneas · `styles.css` 1205 · `app.js` 588 · `engine.js` 320 · `questions.js` 7802 · `storage.js` 108 |
+| Tamaño aproximado | `index.html` 230 líneas · `styles.css` 1109 · `app.js` 104 · `engine.js` 429 · `storage.js` 162 · `state.js` 11 · `dom.js` 68 · `ui/modal.js` 92 · `ui/render.js` 282 · `flow/quiz.js` 164 · `questions.js` 7802 |
 | Dependencias / build | Ninguna dependencia. `package.json` solo declara ESM y `node --test`; sin build ni linter |
-| Tests | 109 tests en `tests/cu-01` … `tests/cu-07`, runner nativo de Node |
-| Specs | 9 propuestas en `specs/001-*` … `specs/009-*`; 001–008 implementadas, 009 pendiente |
+| Tests | 134 tests en `tests/cu-01` … `tests/cu-08`, runner nativo de Node |
+| Specs | 9 propuestas en `specs/001-*` … `specs/009-*`; 001–009 implementadas |
 | Despliegue | Estático; basta con servir la carpeta por HTTP |
 | Tema visual | «Expediente de examen»: azul y blanco, serif documental + sans de interfaz |
 | Metodología | SDD (Spec-Driven Development), regida por `docs/constitution.md` v1.0.0 |
@@ -44,6 +44,12 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **Corrección propia y modal propio**: no se usan `alert`, `confirm` ni `prompt`.
 - **Rediseño «expediente de examen» (2026-11-03)**: la interfaz se inspira en una hoja de examen oficial. Azul noche/sello/trazo sobre papel blanco y azulado, titulares en serif de sistema (Palatino/Georgia) y controles en sans del sistema. Se retira el amarillo y los emojis decorativos. Las opciones del test usan burbujas tipo OMR y la tarjeta de pregunta incorpora un margen de folio numerado.
 - **Sin fuentes ni recursos remotos**: el requisito offline impide usar Google Fonts u otros CDN; la identidad tipográfica se construye con pilas de fuentes locales.
+- **Historial limitado a 50 con rotación confirmada (2026-11-06)**: `HISTORY_LIMIT = 50`; `getHistoryLength()` cuenta el crudo y `saveAttempt(attempt, { rotate: true })` elimina la entrada representable más antigua solo tras confirmar en el modal «Historial completo». Sin confirmación no se escribe nada: el resultado se muestra con `NOT_SAVED_MESSAGE` y se limpia `scs_active`. Se descartó rotar en silencio para no borrar datos sin consentimiento (constitución, principio 5).
+- **Paginación incremental del historial (2026-11-06)**: `HISTORY_PAGE_SIZE = 10` y `paginate()` puro; «Cargar más (N restantes)» añade tarjetas sin repintar las anteriores. El pie usa `aria-live="polite"` y el botón se oculta al no quedar intentos. Se prefirió paginación en cliente a un scroll infinito para no añadir observers ni estado oculto.
+- **Delegación de eventos en el historial (2026-11-06)**: un único listener sobre `#history-list-container` cubre «Ver», «Eliminar» y «Cargar más», incluidas las tarjetas de páginas posteriores. Evita reenganchar listeners por tarjeta y el consiguiente riesgo de duplicados.
+- **División modular de `app.js` (2026-11-06)**: `app.js` queda como arranque (< 200 líneas); el estado vive en `state.js`, las constantes y helpers en `dom.js`, el modal y `switchScreen` en `ui/modal.js`, el pintado en `ui/render.js` y el ciclo del examen en `flow/quiz.js`. `index.html` sigue cargando un único `js/app.js` y no hay ciclos: `render.js` no importa `flow/quiz.js` (el flujo registra `setAnswerChangeHandler`), y `flow/` recibe `QUESTION_BANK` como parámetro.
+- **`onCancel` en el modal (2026-11-06)**: `showModal(title, msg, onConfirm, onCancel = null)` ejecuta el callback opcional al pulsar «Cancelar» o `Escape` y lo limpia en `closeModal`. Los cinco puntos de llamada anteriores no cambian; el aviso de historial completo usa la ruta de cancelación para mostrar el resultado sin guardar.
+- **Impresión de resultados (2026-11-06)**: botón `#btn-print-results` en `.actions-row` que llama a `window.print()`. `@media print` oculta el cromo y muestra solo `.screen.active`; se desvía del snippet del plan (`.screen { display:block }`) para no imprimir las cuatro pantallas a la vez. La desviación queda registrada aquí y en `tasks.md`.
 
 ## Convenciones acordadas
 
@@ -75,12 +81,31 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **Restaurar foco en pruebas con `evaluate_script` (2026-11-05)**: un `.click()` programático no enfoca el disparador, así que `document.activeElement` puede ser `body`. Para probar la restauración hay que hacer `elemento.focus(); elemento.click();`. Con ratón real Chrome sí enfoca el botón.
 - **Recolocar el cursor al sanear un input (2026-11-05)**: asignar `input.value` mueve el cursor al final. Para que no salte al escribir o pegar en medio, se calcula `sanitizeAlias(raw.slice(0, selectionStart))` y se aplica `setSelectionRange(prefix.length, prefix.length)`.
 - **Alias heredado (2026-11-05)**: al cargar se normaliza el alias guardado (`María Rodríguez` → `MaríaRodríguez`) y se vuelve a persistir. Es un cambio visible y esperado; los `candidateAlias` de los intentos del historial no se reescriben.
+- **Contraste auditado (2026-11-06)**: medición WCAG 2.1 con un script Node temporal fuera del repositorio (sin dependencias ni archivos nuevos). Pares representativos:
+
+  | Texto / fondo | Ratio | Umbral | Resultado |
+  | --- | --- | --- | --- |
+  | `--tinta` / `--papel` | 14.47:1 | 4.5 | OK |
+  | `--tinta` / `--azul-papel` | 13.42:1 | 4.5 | OK |
+  | `--tinta-suave` / `--papel` | 5.44:1 | 4.5 | OK |
+  | `--tinta-suave` / `--azul-papel` | 5.04:1 | 4.5 | OK |
+  | `--tinta-suave` / banner `#EAF3FA` | 4.84:1 | 4.5 | OK |
+  | `--tinta-suave` / explicación `#F0F6FC` | 4.99:1 | 4.5 | OK |
+  | `--acierto` / `--acierto-bg` | 5.60:1 | 4.5 | OK |
+  | `--error` / `--error-bg` | 6.26:1 | 4.5 | OK |
+  | `--pendiente` / `--pendiente-bg` | 5.28:1 | 4.5 | OK |
+  | Cabecero `#A9C7E2` / `--azul-noche` | 8.35:1 | 4.5 | OK |
+  | Botones primario/secundario/peligro | 9.13–14.67:1 | 4.5 | OK |
+
+  **Conclusión:** ningún texto activo incumple AA. `--tinta-suave` mide ≈5.44:1 sobre `--papel` y ≈5.04:1 sobre `--azul-papel`, no 4.4:1 como estimaba el informe. Los únicos pares por debajo de 4.5:1 son los controles `disabled` (opacidad 0.45), exentos por WCAG 1.4.3. No se modificó `styles.css`.
+- **Verificar 375 px sin `resize_page` (2026-11-06)**: si la ventana está maximizada, `resize_page` falla con `Browser.setContentsSize`; `emulate` con `viewport` puede fallar por incompatibilidad del protocolo de red. Alternativa usada: un iframe de 375 px que carga `index.html` y mide `document.documentElement.scrollWidth`; sirve para las cuatro pantallas y el modal. El padre y el iframe comparten `localStorage`, así que hay que limpiar `scs_active`/`scs_history` antes de interactuar.
+- **Impresión verificada de forma estructural (2026-11-06)**: se comprobó por CSSOM que `@media print` oculta cabecero/pie/barras/botones/banner/modal, que solo imprime `.screen.active`, que `.review-item` usa `break-inside: avoid` y que `.status-badge` lleva borde; también se verificó que «Imprimir» llama a `window.print()`. La vista previa nativa no se pudo capturar desde el MCP de Chrome DevTools.
 
 ## Deuda técnica e incidencias conocidas
 
 - ~~`README.md` referencia un archivo `LICENSE` que **no existe** en el repositorio.~~ *(resuelta el 2026-11-05: el README ya no anuncia licencia MIT ni enlaza a `LICENSE`; documenta que no hay archivo de licencia y el uso educativo del banco).*
 - ~~`Storage.getHistory()` hace `JSON.parse` sin `try/catch`: un valor corrupto en `scs_history` rompería la app. `getActiveQuiz()` ya tiene lectura defensiva mínima desde 2026-11-05; falta la normalización completa del plan 004.~~ *(resuelta el 2026-11-05 con 004: `readJSON`/`writeJSON`/`removeKey` y normalización en `engine.js`).*
-- No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.
+- ~~No hay control de cuota de `localStorage`; los snapshots completos del historial pueden agotarla con muchos intentos.~~ *(mitigada el 2026-11-06 con 009: `HISTORY_LIMIT = 50` y rotación solo tras confirmación; la escritura sigue devolviendo `false` si el navegador rechaza el guardado).*
 - Los tests cubren solo la lógica pura: no hay tests de integración DOM ni verificación automática de integridad del banco (ids duplicados, `correctOption` válido).
 - ~~El modal no atrapa el foco dentro del diálogo (solo fija el foco inicial y permite cerrar con `Escape`).~~ *(resuelta el 2026-11-05 con 006: `hidden`, `inert`, *focus trap* con `nextFocusIndex()`, `Escape` global y destinos de foco tras confirmar).*
 - Incidencias verificadas y pendientes (2026-11-03), con spec asociada: ~~«Anterior/Siguiente» no persiste la pregunta actual (001)~~ *(resuelta el 2026-11-04)*; ~~`btn-restart-from-res` no refresca «Último resultado» (002)~~ *(resuelta el 2026-11-05)*; ~~iniciar un test sobrescribe el examen en curso (003)~~ *(resuelta el 2026-11-05)*; ~~`localStorage` corrupto rompe el arranque (004)~~ *(resuelta el 2026-11-05)*; ~~el banner de recuperación dice «1 respondidas» (005)~~ *(resuelta el 2026-11-05)*; ~~el modal deja el foco oculto y no atrapa el foco (006)~~ *(resuelta el 2026-11-05 con 006)*.
@@ -109,3 +134,4 @@ Documento vivo con el contexto acumulado del proyecto: estado, decisiones, apren
 - **2026-11-05** — Creado el spec `008-Mejoras` (`specs/008-Mejoras/spec.md`, `plan.md`, `tasks.md`) que agrupa los puntos rápidos del informe (1.3, 2.1, 2.2, 2.3, 2.5, 3.1, 3.6, 4.2, 4.3, 4.4, 5.1). Sin cambios de código.
 - **2026-11-05** — Implementado spec 008: validación de `buildQuiz`/`scoreQuiz`, teclado por flechas en el radiogrupo, `aria-live` en el enunciado, `prefers-reduced-motion`, foco tras clic, `beforeunload`, `autocorrect="off"`, CSP, pluralización en `finishQuiz` y manejador robusto en el historial. Tests 109/109. Verificado en Chrome DevTools (flujo, consola, 375 px).
 - **2026-11-05** — Creado el spec `009-Mejoras-medias` (`specs/009-Mejoras-medias/spec.md`, `plan.md`, `tasks.md`) en la rama `feature_mejoras_medias`, con el bloque «Medias» del informe (1.1, 2.4, 3.2, 3.4, 3.5, 6.1–6.4, 7.2): límite de historial con rotación confirmada, auditoría de contraste, un solo control de finalización, historial paginado con «Cargar más», impresión de resultados y división modular de `app.js`. Sin cambios de código. Se corrige la cifra del informe sobre `--tinta-suave`: mide ≈5.4:1 sobre `--papel` (cumple AA), no 4.4:1; el punto 2.4 queda como auditoría registrada, no como corrección obligatoria.
+- **2026-11-06** — Implementado 009 completo (fases A–E). Fase A: `HISTORY_PAGE_SIZE`/`paginate` en `engine.js` y `HISTORY_LIMIT`/`getHistoryLength`/`saveAttempt(..., { rotate })` en `storage.js`, con tests CU-08 y ampliación de CU-05 (commit `b5123a9`). Fase B: auditoría de contraste sin incumplimientos en texto activo; `styles.css` no cambió. Fase C: `onCancel` en el modal, historial completo con rotación confirmada y ruta de cancelación sin guardar, un solo control de finalización en la última pregunta, historial paginado de 10 en 10 con delegación de eventos, botón «Imprimir» y `@media print`. Fase D: `app.js` reducido a 104 líneas; nuevos `state.js`, `dom.js`, `ui/modal.js`, `ui/render.js` y `flow/quiz.js` con grafo acíclico y un único `<script type="module">`. Fase E: JSDoc en las APIs públicas, `AGENTS.md` y `MEMORY.md` actualizados. `node --test` → 134/134. Verificado en Chrome DevTools: flujo completo, consola limpia (solo el aviso preexistente de CSP `frame-ancestors`), última pregunta con `#btn-finish-quiz` oculto y foco trasladado, historial de 25 intentos en páginas de 10/20/25, acciones en la tercera página, historial lleno de 50 con rotación/cancelación y resultados sin guardar, y 375 px sin desbordamiento en las cuatro pantallas y el modal mediante iframe (el `resize_page` del MCP falla con la ventana maximizada). La impresión se validó por CSSOM y por el binding de `window.print()`, no con la vista previa nativa. Las 44 tareas de `tasks.md` quedan marcadas.

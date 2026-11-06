@@ -35,13 +35,19 @@ Al finalizar un cambio:
 ```
 index.html          # Única página; contiene las 4 "pantallas" y el modal global
 css/styles.css      # Todo el estilo (variables CSS, sin frameworks)
-js/app.js           # Punto de entrada (type="module"): estado, timer, render y eventos
+js/app.js           # Punto de entrada (type="module"): DOMContentLoaded, alias, banner y listeners
+js/state.js         # Único objeto `state` mutable (exportado)
+js/dom.js           # Constantes SCREENS/IDS/OPTION_PREFIXES y helpers byId/optionPrefix
+js/ui/modal.js      # Modal propio, foco, `inert` y switchScreen
+js/ui/render.js     # Render de pregunta, resultados, último intento e historial paginado
+js/flow/quiz.js     # Timer, persistencia, navegación, arranque y finalización
 js/engine.js        # Lógica pura del examen (testeable con node --test)
 js/questions.js     # Banco de preguntas (export const QUESTION_BANK)
 js/storage.js       # Wrapper de localStorage (export const Storage)
 specs/NNN-*/        # Especificaciones SDD (una carpeta por cambio)
 tests/cu-XX/        # Tests de los casos de uso esenciales
 tests/cu-07/        # Ciclo de foco del modal (nextFocusIndex)
+tests/cu-08/        # Paginación pura del historial (paginate)
 tests/helpers/      # Fixtures y localStorage en memoria
 package.json        # Solo ESM + script de test; sin dependencias
 images/favicon.ico
@@ -77,29 +83,56 @@ node --test     # sin pasar por npm
 - `tests/cu-XX/` agrupa un caso de uso esencial; `tests/helpers/` contiene fixtures y un `localStorage` en memoria.
 - La lógica testeable vive en `js/engine.js` (pura, sin DOM). No importar `js/app.js` en tests: registra `DOMContentLoaded` y usa `document`.
 - `js/storage.js` se testea inyectando `globalThis.localStorage` antes de cada test.
-- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial, CU-06 alias (`Storage` y funciones puras `sanitizeAlias`/`isValidAlias`) y CU-07 ciclo de foco del modal (`nextFocusIndex`).
+- Casos cubiertos: CU-01 iniciar simulacro, CU-02 responder, CU-03 recuperar, CU-04 finalizar, CU-05 historial (incluido `HISTORY_LIMIT` y la rotación), CU-06 alias (`Storage` y funciones puras `sanitizeAlias`/`isValidAlias`), CU-07 ciclo de foco del modal (`nextFocusIndex`) y CU-08 paginación (`paginate`).
 - Los tests no sustituyen la verificación manual con Chrome DevTools.
 
 ## Arquitectura y convenciones
 
 ### `js/app.js`
 
-- Un único objeto `state` mutable: `alias`, `questions`, `userAnswers`, `currentIndex`, `accumulatedMs`, `startTimestamp`, `timerInterval`.
-- Navegación por **pantallas**, no por rutas: `switchScreen(id)` activa `#screen-<id>` quitando/añadiendo la clase `.active`. Pantallas: `home`, `quiz`, `results`, `history`.
-- Renderizado imperativo con `document.createElement`, `DocumentFragment` y `innerHTML`. No hay framework reactivo: tras cambiar el estado hay que volver a renderizar explícitamente.
-- Los listeners se registran una sola vez dentro de `DOMContentLoaded` para elementos fijos del HTML. Para elementos generados dinámicamente se enganchan justo después de insertarlos en el DOM.
-- El cronómetro se basa en `Date.now()` (no en contar *ticks*) para sobrevivir a la suspensión de la pestaña. `accumulatedMs` guarda el tiempo de tramos anteriores.
-- Cada respuesta llama a `persistActiveQuiz()` para permitir la recuperación tras una recarga.
-- `startQuiz()` baraja **solo el orden de las preguntas**. Las opciones de cada pregunta conservan el orden exacto de `questions.js`: no aplicar `shuffle` a `q.options`.
+- Punto de entrada: solo `DOMContentLoaded`, carga y saneado del alias, banner de recuperación, datos del banco y registro de listeners fijos. Debe quedar por debajo de 200 líneas.
+- Los listeners se registran una sola vez para elementos fijos del HTML. Para contenido dinámico se usa delegación de eventos sobre un contenedor estable.
+
+### `js/state.js`
+
+- Único objeto `state` mutable: `alias`, `questions`, `userAnswers`, `currentIndex`, `accumulatedMs`, `startTimestamp`, `timerInterval`. Ningún otro módulo declara estado global propio.
+
+### `js/dom.js`
+
+- Constantes compartidas sin dependencias: `SCREENS`, `IDS`, `BACKGROUND_REGIONS`, `OPTION_PREFIXES`, `optionPrefix(index)`, `byId(id)` y `screenId(screen)`.
+- Usar `SCREENS.*` e `IDS.*` en lugar de literales de pantalla o identificadores repetidos.
+
+### `js/ui/modal.js`
+
+- `showModal(title, msg, onConfirm, onCancel = null)`, `closeModal`, `showStorageError` y `switchScreen`.
+- Navegación por **pantallas**, no por rutas: `switchScreen(screen)` activa `#screen-<screen>` quitando/añadiendo la clase `.active`. Pantallas: `home`, `quiz`, `results`, `history`.
+- El modal es propio; no usar `alert`/`confirm`/`prompt`. Se oculta con `hidden`, usa `aria-labelledby`/`aria-describedby`, aplica `inert` al fondo (`header`, `main`, `footer`), bloquea el scroll con `body.modal-open`, enfoca «Aceptar», atrapa `Tab`/`Shift+Tab` con `nextFocusIndex()` y escucha `Escape` en `document` mientras está abierto. No se usa `aria-hidden` dinámico.
+- `onCancel` es opcional: se ejecuta al pulsar «Cancelar» o `Escape`. El aviso de historial completo lo usa para mostrar el resultado sin guardar.
+
+### `js/ui/render.js`
+
+- Renderizado imperativo con `document.createElement`, `DocumentFragment` e `innerHTML`. No hay framework reactivo: tras cambiar el estado hay que volver a renderizar explícitamente.
 - Las opciones del examen son accesibles por teclado: `role="radio"`, `tabindex="0"` y selección con `Enter`/`Espacio`. `renderQuestion(focusOptionIndex)` conserva el foco tras volver a renderizar.
-- El modal de confirmación es propio (`showModal(title, msg, onConfirm)` + `#custom-modal`); no usar `alert`/`confirm`/`prompt`. Se oculta con `hidden`, usa `aria-labelledby`/`aria-describedby`, aplica `inert` al fondo (`header`, `main`, `footer`), bloquea el scroll con `body.modal-open`, enfoca «Aceptar», atrapa `Tab`/`Shift+Tab` con `nextFocusIndex()` y escucha `Escape` en `document` mientras está abierto. No se usa `aria-hidden` dinámico.
-- Comentarios y textos de UI **en español**.
+- En la última pregunta `renderQuestion()` oculta `#btn-finish-quiz` y, si tenía el foco, lo traslada a `#btn-next-q` antes de ocultarlo; al retroceder vuelve a mostrarse.
+- `renderResults(attempt)` se reutiliza al finalizar y al revisar un intento del historial; `renderLastAttempt()` pinta la tarjeta de portada y `returnHome()` renderiza antes de cambiar de pantalla.
+- El historial se pagina de 10 en 10 (`HISTORY_PAGE_SIZE`): «Cargar más (N restantes)» añade páginas sin repintar las anteriores y el pie usa `aria-live="polite"`. «Ver»/«Eliminar» usan delegación de eventos sobre `#history-list-container`.
+- No importa `flow/quiz.js`: el flujo registra `setAnswerChangeHandler(persistActiveQuiz)` para evitar ciclos.
+
+### `js/flow/quiz.js`
+
+- Ciclo de vida del examen: cronómetro, persistencia, navegación, arranque y finalización.
+- El cronómetro se basa en `Date.now()` (no en contar *ticks*) para sobrevivir a la suspensión de la pestaña. `accumulatedMs` guarda el tiempo de tramos anteriores.
+- Cada respuesta y cada navegación llaman a `persistActiveQuiz()` para permitir la recuperación tras una recarga.
+- `startQuiz(savedQuiz, bank)` es la ruta de recuperación; `handleStartQuiz(bank)` relee `scs_active` en el clic. El banco se pasa como parámetro para no importar `questions.js` desde `flow/`.
+- `startQuiz()` baraja **solo el orden de las preguntas**. Las opciones de cada pregunta conservan el orden exacto de `questions.js`: no aplicar `shuffle` a `q.options`.
+- Al finalizar, si el historial está lleno (`HISTORY_LIMIT = 50`), se pide confirmación y solo entonces se rota; cancelar muestra el resultado sin escribir en el historial y avisa con `NOT_SAVED_MESSAGE`.
 
 ### `js/engine.js`
 
-- Lógica pura sin DOM ni almacenamiento: `shuffle`, `buildQuiz`, `toggleAnswer`, `buildActiveQuizSnapshot`, `scoreQuiz`, `createAttempt`, validadores/normalizadores, alias (`ALIAS_MAX_LENGTH`, `ALIAS_PATTERN`, `sanitizeAlias`, `isValidAlias`) y formateadores (`formatTime`, `formatPct`, `formatDate`, `escapeHTML`).
+- Lógica pura sin DOM ni almacenamiento: `shuffle`, `buildQuiz`, `toggleAnswer`, `buildActiveQuizSnapshot`, `scoreQuiz`, `createAttempt`, `paginate`, validadores/normalizadores, alias (`ALIAS_MAX_LENGTH`, `ALIAS_PATTERN`, `sanitizeAlias`, `isValidAlias`) y formateadores (`formatTime`, `formatPct`, `formatDate`, `escapeHTML`).
+- `HISTORY_PAGE_SIZE = 10` y `paginate(list, page, pageSize)` no mutan la lista; `page` se recorta al rango válido y un `pageSize` inválido usa el valor por defecto.
 - `shuffle()` y `buildQuiz()` aceptan un RNG opcional para tests deterministas; en producción usan `Math.random`.
-- No mover aquí estado global, render ni eventos: eso pertenece a `app.js`.
+- No mover aquí estado global, render ni eventos: eso pertenece a `state.js`, `ui/` y `flow/`.
 
 ### `js/storage.js`
 
@@ -111,7 +144,11 @@ Claves de `localStorage` (no cambiarlas sin migrar datos):
 | `scs_history` | Array de intentos (el más reciente primero) |
 | `scs_active`  | Examen en curso (recuperación)             |
 
-Mantener todo acceso a `localStorage` dentro de este módulo; no usarlo directamente en `app.js`.
+Mantener todo acceso a `localStorage` dentro de este módulo; no usarlo directamente en `app.js`, `ui/` ni `flow/`.
+
+- `HISTORY_LIMIT = 50` es el máximo de intentos que se conservan al rotar. `getHistoryLength()` cuenta el crudo (incluidas entradas inválidas) y `saveAttempt(attempt, { rotate: true })` elimina la entrada representable más antigua solo cuando se supera el límite. Sin `rotate`, no se descarta nada.
+- La rotación y el borrado parten del array crudo para no reescribir ni perder entradas inválidas.
+- El historial se muestra paginado de 10 en 10, pero el límite de almacenamiento sigue siendo 50.
 
 ### Alias de usuario (CU-06)
 
@@ -156,6 +193,7 @@ Reglas al añadir o editar preguntas:
 - Usar las variables existentes en lugar de colores literales nuevos.
 - Clases de botón: `.btn` + `.btn-primary` / `.btn-accent` / `.btn-secondary` / `.btn-danger`, y `.btn-sm`, `.btn-lg`, `.w-full`.
 - Responsive con `@media (min-width: 768px)` y `@media (max-width: 599px)`, CSS Grid/Flexbox. Sin dependencias externas ni fuentes remotas.
+- `@media print` imprime solo la pantalla activa (`.screen { display:none }` + `.screen.active { display:block }`), oculta cabecero, pie, barras, botones, banner y modal, y evita cortar `.review-item` (`break-inside: avoid`). Los badges de estado se refuerzan con borde para leerse en blanco y negro.
 - No reintroducir estilos inline ni emojis decorativos en la interfaz; la jerarquía se resuelve con clases del tema.
 
 ## Seguridad

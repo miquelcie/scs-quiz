@@ -282,6 +282,18 @@ describe('CU-05 — Límite del historial', () => {
         assert.equal(history[history.length - 1].id, 'att_2');
     });
 
+    test('la rotación nunca elimina el intento recién guardado si no hay antiguos representables', () => {
+        localStorage.setItem('scs_history', JSON.stringify(Array(HISTORY_LIMIT).fill(null)));
+        const fresh = storedAttempt(1);
+
+        assert.equal(Storage.saveAttempt(fresh, { rotate: true }), true);
+
+        const raw = JSON.parse(localStorage.getItem('scs_history'));
+        assert.equal(raw.length, HISTORY_LIMIT + 1);
+        assert.equal(raw[0].id, fresh.id);
+        assert.ok(raw.slice(1).every(item => item === null));
+    });
+
     test('el intento guardado con rotación queda primero y es recuperable', () => {
         seedHistory(HISTORY_LIMIT);
         const fresh = storedAttempt(HISTORY_LIMIT + 1);
