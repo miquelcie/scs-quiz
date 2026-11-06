@@ -1082,6 +1082,20 @@ footer {
     gap: 0.4rem;
 }
 
+.history-footer {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--filete-suave);
+}
+
+.history-count {
+    font-size: 0.82rem;
+    color: var(--tinta-suave);
+    text-align: center;
+}
+
 /* --- Modal ------------------------------------------------------------- */
 
 /* Bloqueo de scroll del fondo mientras el diálogo está abierto. */
@@ -1201,5 +1215,98 @@ body.modal-open {
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
         scroll-behavior: auto !important;
+    }
+}
+
+/* --- Impresión de resultados ------------------------------------------- */
+
+@media print {
+    header,
+    footer,
+    .quiz-bar,
+    .quiz-nav,
+    .actions-row,
+    #recovery-banner,
+    #custom-modal,
+    .history-actions,
+    .history-footer,
+    #btn-load-more-history,
+    .history-count {
+        display: none !important;
+    }
+
+    body {
+        background: #fff;
+        color: #000;
+    }
+
+    main {
+        max-width: none;
+        padding: 0;
+    }
+
+    /* Solo se imprime la pantalla activa (resultados al pulsar «Imprimir»). */
+    .screen {
+        display: none !important;
+    }
+
+    .screen.active {
+        display: block !important;
+    }
+
+    .results-head {
+        padding-top: 0;
+        border-bottom: 1px solid #000;
+    }
+
+    .results-label,
+    .results-meta,
+    .stat-lbl {
+        color: #000;
+    }
+
+    .results-score,
+    .stat-val {
+        color: #000;
+    }
+
+    .stats-grid {
+        background: #fff;
+        border-color: #000;
+    }
+
+    .stat-card {
+        border: 1px solid #000;
+    }
+
+    .card {
+        padding: 0;
+        border: none;
+    }
+
+    .review-item {
+        border: 1px solid #000;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Las etiquetas de estado llevan texto propio; el borde refuerza la lectura
+       en blanco y negro sin depender del color. */
+    .status-badge {
+        border: 1px solid #000;
+        color: #000;
+    }
+
+    .review-option.is-user,
+    .review-option.is-correct {
+        background: #fff;
+        border: 1px solid #000;
+        color: #000;
+    }
+
+    .explanation-box {
+        background: #fff;
+        border: 1px solid #000;
+        color: #000;
     }
 }

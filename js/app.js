@@ -1,509 +1,38 @@
+// Arranque de la aplicación: carga inicial y registro de listeners estáticos.
+// La lógica vive en flow/, el pintado en ui/, el estado en state.js.
+
 import { QUESTION_BANK } from './questions.js';
 import { Storage } from './storage.js';
+import { formatRecoveryInfo, isQuizInProgress, sanitizeAlias } from './engine.js';
+import { IDS, byId } from './dom.js';
+import { state } from './state.js';
+import { showModal, showStorageError } from './ui/modal.js';
 import {
-    buildActiveQuizSnapshot,
-    buildQuiz,
-    createAttempt,
-    escapeHTML,
-    formatDate,
-    formatPct,
-    formatRecoveryInfo,
-    formatTime,
-    isQuizInProgress,
-    moveIndex,
-    nextFocusIndex,
-    pluralize,
-    sanitizeAlias,
-    toggleAnswer
-} from './engine.js';
+    renderHistoryScreen,
+    renderLastAttempt,
+    returnHome,
+    setAnswerChangeHandler
+} from './ui/render.js';
+import {
+    finishQuiz,
+    handleStartQuiz,
+    navigate,
+    persistActiveQuiz,
+    startQuiz
+} from './flow/quiz.js';
 
-const DISCARD_ACTIVE_QUIZ_MESSAGE = 'Hay un examen en curso con respuestas guardadas. Si empiezas uno nuevo, se descartará y no podrás recuperarlo.';
-
-// --- ESTADO Y TIMER ---
-const state = {
-    alias: '',
-    questions: [],
-    userAnswers: {},
-    currentIndex: 0,
-    accumulatedMs: 0,
-    startTimestamp: 0,
-    timerInterval: null
-};
-
-const startTimer = () => {
-    stopTimer();
-    state.startTimestamp = Date.now();
-    const update = () => {
-        const totalSec = Math.floor((state.accumulatedMs + (Date.now() - state.startTimestamp)) / 1000);
-        document.getElementById('quiz-timer').textContent = formatTime(totalSec);
-    };
-    update();
-    state.timerInterval = setInterval(update, 1000);
-};
-
-const stopTimer = () => {
-    if (state.timerInterval) {
-        clearInterval(state.timerInterval);
-        state.timerInterval = null;
-        state.accumulatedMs += Date.now() - state.startTimestamp;
-    }
-};
-
-const saveActiveQuizNow = () => {
-    Storage.setActiveQuiz(buildActiveQuizSnapshot({
-        questions: state.questions,
-        userAnswers: state.userAnswers,
-        currentIndex: state.currentIndex,
-        accumulatedMs: state.accumulatedMs + (state.timerInterval ? Date.now() - state.startTimestamp : 0)
-    }));
-};
-
-// Guarda solo si el examen sigue activo: pantalla de cuestionario y cuestionario cargado.
-const persistActiveQuiz = () => {
-    const quizScreen = document.getElementById('screen-quiz');
-    if (!quizScreen?.classList.contains('active')) return;
-    if (!isQuizInProgress(state.questions, state.currentIndex)) return;
-    saveActiveQuizNow();
-};
-
-const navigate = delta => {
-    const nextIndex = moveIndex(state.currentIndex, state.questions.length, delta);
-    if (nextIndex === state.currentIndex) return;
-
-    state.currentIndex = nextIndex;
-    persistActiveQuiz();
-    renderQuestion();
-};
-
-// --- NAVEGACIÓN Y MODAL ---
-const BACKGROUND_REGIONS = ['header', 'main', 'footer'];
-const supportsInert = typeof HTMLElement !== 'undefined' && 'inert' in HTMLElement.prototype;
-let modalTrigger = null;
-let modalConfirmHandler = null;
-
-const applyBackgroundInert = enabled => {
-    if (!supportsInert) return;
-    BACKGROUND_REGIONS.forEach(selector => {
-        const region = document.querySelector(selector);
-        if (region) region.inert = enabled;
-    });
-};
-
-const focusActiveScreen = () => {
-    document.querySelector('.screen.active')?.focus({ preventScroll: true });
-};
-
-const isVisible = element =>
-    Boolean(element && element.isConnected && element.getClientRects().length > 0);
-
-const switchScreen = screenId => {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const screen = document.getElementById(`screen-${screenId}`);
-    screen?.classList.add('active');
-    window.scrollTo(0, 0);
-    screen?.focus({ preventScroll: true });
-};
-
-const cancelModalHandler = () => closeModal(true);
-
-const modalKeydownHandler = event => {
-    if (event.key === 'Escape') {
-        event.preventDefault();
-        closeModal(true);
-        return;
-    }
-    if (event.key !== 'Tab') return;
-
-    const controls = [
-        document.getElementById('modal-cancel'),
-        document.getElementById('modal-confirm')
-    ];
-    const current = controls.indexOf(document.activeElement);
-    const next = nextFocusIndex(current === -1 ? 0 : current, controls.length, event.shiftKey);
-    event.preventDefault();
-    controls[next]?.focus({ preventScroll: true });
-};
-
-const closeModal = (restoreFocus = true) => {
-    const modal = document.getElementById('custom-modal');
-    if (!modal || modal.hidden) return;
-
-    const trigger = modalTrigger;
-    modal.hidden = true;
-    modal.classList.remove('active');
-    applyBackgroundInert(false);
-    document.body.classList.remove('modal-open');
-    document.removeEventListener('keydown', modalKeydownHandler);
-    document.getElementById('modal-cancel')?.removeEventListener('click', cancelModalHandler);
-    document.getElementById('modal-confirm')?.removeEventListener('click', modalConfirmHandler);
-
-    modalTrigger = null;
-    modalConfirmHandler = null;
-
-    // Nunca dejar el foco en un diálogo que acaba de ocultarse.
-    if (modal.contains(document.activeElement)) document.activeElement.blur();
-
-    if (!restoreFocus) return;
-    if (isVisible(trigger)) {
-        trigger.focus({ preventScroll: true });
-        return;
-    }
-    focusActiveScreen();
-};
-
-const showModal = (title, msg, onConfirm) => {
-    const modal = document.getElementById('custom-modal');
-    const btnConfirm = document.getElementById('modal-confirm');
-    const btnCancel = document.getElementById('modal-cancel');
-
-    modalTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    modalConfirmHandler = () => {
-        closeModal(false);
-        onConfirm();
-    };
-
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-msg').textContent = msg;
-
-    btnConfirm.addEventListener('click', modalConfirmHandler);
-    btnCancel.addEventListener('click', cancelModalHandler);
-    document.addEventListener('keydown', modalKeydownHandler);
-
-    modal.hidden = false;
-    modal.classList.add('active');
-    applyBackgroundInert(true);
-    document.body.classList.add('modal-open');
-    btnConfirm.focus({ preventScroll: true });
-};
-
-// Aviso de una operación de almacenamiento que no se pudo completar.
-const showStorageError = (title, message) => showModal(title, message, () => {});
-
-// --- RENDERIZADO DE VISTAS ---
-const renderQuestion = (focusOptionIndex = null) => {
-    const q = state.questions[state.currentIndex];
-    const total = state.questions.length;
-    const progress = Math.round(((state.currentIndex + 1) / total) * 100);
-
-    document.getElementById('q-current').textContent = state.currentIndex + 1;
-    document.getElementById('q-total').textContent = total;
-    document.getElementById('q-folio').textContent = state.currentIndex + 1;
-    document.getElementById('progress-bar-fill').style.width = `${progress}%`;
-    document.getElementById('progress-bar-bg').setAttribute('aria-valuenow', progress);
-    document.getElementById('question-statement').textContent = q.statement;
-
-    const container = document.getElementById('options-container');
-    const fragment = document.createDocumentFragment();
-    const prefixes = ['A', 'B', 'C', 'D', 'E'];
-
-    q.options.forEach((opt, idx) => {
-        const isSelected = state.userAnswers[q.id] === opt.id;
-        const item = document.createElement('div');
-        item.className = `option-item ${isSelected ? 'selected' : ''}`;
-        item.tabIndex = 0;
-        item.setAttribute('role', 'radio');
-        item.setAttribute('aria-checked', String(isSelected));
-        item.innerHTML = `
-            <div class="option-prefix">${prefixes[idx] || idx + 1}</div>
-            <div class="option-text">${escapeHTML(opt.text)}</div>
-        `;
-
-        const selectAnswer = () => {
-            toggleAnswer(state.userAnswers, q.id, opt.id);
-            persistActiveQuiz();
-        };
-
-        item.addEventListener('click', () => {
-            selectAnswer();
-            renderQuestion(idx);
-        });
-
-        item.addEventListener('keydown', e => {
-            const optionCount = q.options.length;
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                selectAnswer();
-                renderQuestion(idx);
-                return;
-            }
-
-            let target = null;
-            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-                target = (idx + 1) % optionCount;
-            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-                target = (idx - 1 + optionCount) % optionCount;
-            } else if (e.key === 'Home') {
-                target = 0;
-            } else if (e.key === 'End') {
-                target = optionCount - 1;
-            }
-
-            if (target !== null) {
-                e.preventDefault();
-                container.children[target]?.focus({ preventScroll: true });
-            }
-        });
-
-        fragment.appendChild(item);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(fragment);
-
-    if (focusOptionIndex !== null) {
-        container.children[focusOptionIndex]?.focus();
-    }
-
-    document.getElementById('btn-prev-q').disabled = state.currentIndex === 0;
-    document.getElementById('btn-next-q').textContent = state.currentIndex === total - 1 ? 'Finalizar test' : 'Siguiente';
-};
-
-const renderResults = (attempt) => {
-    document.getElementById('results-candidate').textContent = `Aspirante: ${String(attempt.candidateAlias ?? 'Aspirante')}. ${formatDate(attempt.date)}`;
-    document.getElementById('res-score-pct').textContent = formatPct(Number(attempt.scorePct));
-    document.getElementById('res-hits').textContent = Number(attempt.hits);
-    document.getElementById('res-errors').textContent = Number(attempt.errors);
-    document.getElementById('res-blank').textContent = Number(attempt.unanswered);
-    document.getElementById('res-time-total').textContent = formatTime(Number(attempt.totalTimeSeconds));
-
-    const container = document.getElementById('review-container');
-    const fragment = document.createDocumentFragment();
-    const prefixes = ['A', 'B', 'C', 'D', 'E'];
-
-    attempt.questionsSnapshot.forEach((q, idx) => {
-        const userChoice = attempt.userAnswersSnapshot[q.id];
-        const isCorrect = userChoice === q.correctOption;
-        const isBlank = !userChoice;
-
-        let badge = isCorrect ? '<span class="status-badge badge-correct">Correcta</span>' :
-                    isBlank ? '<span class="status-badge badge-unanswered">Sin responder</span>' :
-                    '<span class="status-badge badge-incorrect">Incorrecta</span>';
-        let statusClass = isCorrect ? 'status-correct' : isBlank ? 'status-unanswered' : 'status-incorrect';
-
-        const item = document.createElement('div');
-        item.className = `review-item ${statusClass}`;
-
-        let optionsHTML = '';
-        q.options.forEach((opt, optIdx) => {
-            const isRight = q.correctOption === opt.id;
-            const isUser = userChoice === opt.id;
-            let style = isRight ? 'is-correct' : (isUser ? 'is-user' : '');
-            let tag = isRight ? 'Respuesta correcta' : (isUser ? 'Tu respuesta' : '');
-
-            optionsHTML += `
-                <div class="review-option ${style}">
-                    <span><strong>${prefixes[optIdx]}:</strong> ${escapeHTML(opt.text)}</span>
-                    <span class="option-tag">${tag}</span>
-                </div>`;
-        });
-
-        item.innerHTML = `
-            <div>${badge}</div>
-            <p class="review-statement">${idx + 1}. ${escapeHTML(q.statement)}</p>
-            <div>${optionsHTML}</div>
-            ${q.explanation ? `<div class="explanation-box"><strong>Explicación:</strong> ${escapeHTML(q.explanation)}</div>` : ''}
-        `;
-        fragment.appendChild(item);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(fragment);
-    switchScreen('results');
-};
-
-const renderLastAttempt = () => {
-    const history = Storage.getHistory();
-    const container = document.getElementById('last-attempt-content');
-    if (!history.length) {
-        container.innerHTML = `<p class="empty-state">Todavía no has completado ningún simulacro. Cuando termines el primero, aquí verás tu nota.</p>`;
-        return;
-    }
-    const last = history[0];
-    container.innerHTML = `
-        <div class="last-score">
-            <span class="last-score-value">${formatPct(Number(last.scorePct))}</span>
-            <span class="last-score-detail">${Number(last.hits)} de ${Number(last.totalQuestions)} aciertos</span>
-        </div>
-        <dl class="last-meta">
-            <div><dt>Fecha</dt><dd>${escapeHTML(formatDate(last.date))}</dd></div>
-            <div><dt>Tiempo</dt><dd>${formatTime(Number(last.totalTimeSeconds))}</dd></div>
-        </dl>
-        <button id="btn-view-last" class="btn btn-secondary btn-sm w-full">Revisar intento</button>`;
-    document.getElementById('btn-view-last').addEventListener('click', () => renderResults(last));
-};
-
-// Vuelve a la portada con la tarjeta «Último resultado» ya actualizada.
-// El render va antes del cambio de pantalla para que el foco (006) caiga sobre contenido vigente.
-const returnHome = () => {
-    renderLastAttempt();
-    switchScreen('home');
-};
-
-const renderHistoryScreen = () => {
-    const history = Storage.getHistory();
-    const container = document.getElementById('history-list-container');
-    if (!history.length) {
-        container.innerHTML = `<p class="empty-state is-centered">Todavía no hay intentos guardados. Completa un simulacro y aparecerá aquí.</p>`;
-        switchScreen('history');
-        return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    history.forEach(item => {
-        const safeId = escapeHTML(String(item.id));
-        const card = document.createElement('div');
-        card.className = 'history-card';
-        card.innerHTML = `
-            <div class="history-main">
-                <div class="history-title">Examen de ${Number(item.totalQuestions)} preguntas</div>
-                <div class="history-meta">
-                    <span>${escapeHTML(String(item.candidateAlias))}</span>
-                    <span>${escapeHTML(formatDate(item.date))}</span>
-                </div>
-                <div class="history-stats">
-                    <span><strong>${Number(item.hits)}</strong> aciertos</span>
-                    <span><strong>${Number(item.errors)}</strong> errores</span>
-                    <span><strong>${Number(item.unanswered)}</strong> sin responder</span>
-                </div>
-            </div>
-            <div class="history-side">
-                <div class="history-result">
-                    <div class="history-score">${formatPct(Number(item.scorePct))}</div>
-                    <div class="history-time">${formatTime(Number(item.totalTimeSeconds))}</div>
-                </div>
-                <div class="history-actions">
-                    <button class="btn btn-secondary btn-sm btn-view" data-id="${safeId}">Ver</button>
-                    <button class="btn btn-danger btn-sm btn-del" data-id="${safeId}" aria-label="Eliminar este intento">Eliminar</button>
-                </div>
-            </div>`;
-        fragment.appendChild(card);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(fragment);
-
-    container.querySelectorAll('.btn-view').forEach(btn => {
-        btn.addEventListener('click', e => {
-            const found = history.find(h => h.id === e.currentTarget.dataset.id);
-            if (found) renderResults(found);
-        });
-    });
-
-    container.querySelectorAll('.btn-del').forEach(btn => {
-        btn.addEventListener('click', e => {
-            showModal("Eliminar intento", "¿Deseas eliminar este registro?", () => {
-                if (!Storage.deleteAttempt(e.currentTarget.dataset.id)) {
-                    showStorageError(
-                        'No se pudo borrar',
-                        'No se pudo eliminar el intento. El historial guardado no se ha modificado.'
-                    );
-                    return;
-                }
-                renderHistoryScreen();
-                renderLastAttempt();
-            });
-        });
-    });
-
-    switchScreen('history');
-};
-
-// --- FLUJO DE EXAMEN ---
-const confirmDiscardActiveQuiz = () => {
-    Storage.clearActiveQuiz();
-    startQuiz();
-};
-
-// Relee el examen activo en el clic para no decidir con un banner obsoleto.
-const handleStartQuiz = () => {
-    const activeQuiz = Storage.getActiveQuiz();
-    if (!activeQuiz) {
-        startQuiz();
-        return;
-    }
-    showModal('Examen en curso', DISCARD_ACTIVE_QUIZ_MESSAGE, confirmDiscardActiveQuiz);
-};
-
-const startQuiz = (savedQuiz = null) => {
-    if (savedQuiz) {
-        state.questions = savedQuiz.questions;
-        state.userAnswers = savedQuiz.userAnswers || {};
-        state.currentIndex = moveIndex(
-            savedQuiz.currentIndex ?? 0,
-            Array.isArray(savedQuiz.questions) ? savedQuiz.questions.length : 0,
-            0
-        );
-        state.accumulatedMs = savedQuiz.accumulatedMs || 0;
-    } else {
-        const count = document.getElementById('num-questions-select').value;
-
-        // Las preguntas se barajan, pero las opciones conservan el orden
-        // exacto definido en QUESTION_BANK.
-        state.questions = buildQuiz(QUESTION_BANK, count);
-        state.userAnswers = {};
-        state.currentIndex = 0;
-        state.accumulatedMs = 0;
-        saveActiveQuizNow();
-    }
-
-    document.getElementById('recovery-banner').hidden = true;
-    startTimer();
-    renderQuestion();
-    switchScreen('quiz');
-};
-
-const finishQuiz = () => {
-    const total = state.questions.length;
-    const answered = Object.keys(state.userAnswers).length;
-    const pending = total - answered;
-
-    const processFinish = () => {
-        stopTimer();
-        const activeCleared = Storage.clearActiveQuiz();
-
-        const attempt = createAttempt({
-            questions: state.questions,
-            userAnswers: state.userAnswers,
-            alias: state.alias,
-            totalTimeSeconds: Math.floor(state.accumulatedMs / 1000)
-        });
-
-        const saved = Storage.saveAttempt(attempt);
-        renderResults(attempt);
-
-        if (!saved) {
-            showStorageError(
-                'No se pudo guardar',
-                'El intento no se pudo guardar en este navegador. El resultado se muestra, pero se perderá al recargar.'
-            );
-        } else if (!activeCleared) {
-            showStorageError(
-                'No se pudo borrar el examen en curso',
-                'El intento se ha guardado, pero el examen en curso sigue almacenado y podría reaparecer al recargar.'
-            );
-        }
-    };
-
-    if (pending > 0) {
-        const pendingLabel = pluralize(pending, 'pregunta sin responder', 'preguntas sin responder');
-        showModal("Preguntas pendientes", `Tienes ${pendingLabel} de ${total}. ¿Deseas finalizar de todos modos?`, processFinish);
-    } else {
-        processFinish();
-    }
-};
-
-// --- INICIALIZACIÓN Y BINDINGS ---
 document.addEventListener('DOMContentLoaded', () => {
-    const aliasInput = document.getElementById('input-alias');
+    const aliasInput = byId(IDS.ALIAS_INPUT);
     const savedAlias = Storage.getAlias();
     state.alias = sanitizeAlias(savedAlias);
     aliasInput.value = state.alias;
-    document.getElementById('display-alias').textContent = state.alias || 'Aspirante';
+    byId(IDS.DISPLAY_ALIAS).textContent = state.alias || 'Aspirante';
     if (state.alias !== savedAlias) {
         Storage.setAlias(state.alias);
     }
-    document.getElementById('available-info').textContent = `${QUESTION_BANK.length} preguntas disponibles con respuesta verificada.`;
-    document.getElementById('hero-bank').textContent = `${QUESTION_BANK.length} preguntas verificadas`;
+
+    byId(IDS.AVAILABLE_INFO).textContent = `${QUESTION_BANK.length} preguntas disponibles con respuesta verificada.`;
+    byId(IDS.HERO_BANK).textContent = `${QUESTION_BANK.length} preguntas verificadas`;
 
     aliasInput.addEventListener('input', () => {
         const rawAlias = aliasInput.value;
@@ -519,36 +48,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         state.alias = cleanAlias;
         Storage.setAlias(cleanAlias);
-        document.getElementById('display-alias').textContent = cleanAlias || 'Aspirante';
+        byId(IDS.DISPLAY_ALIAS).textContent = cleanAlias || 'Aspirante';
     });
 
     const activeQuiz = Storage.getActiveQuiz();
     if (activeQuiz && activeQuiz.questions?.length) {
-        document.getElementById('recovery-info').textContent = formatRecoveryInfo(
+        byId(IDS.RECOVERY_INFO).textContent = formatRecoveryInfo(
             activeQuiz.questions,
             activeQuiz.userAnswers
         );
-        document.getElementById('recovery-banner').hidden = false;
+        byId(IDS.RECOVERY_BANNER).hidden = false;
     }
 
-    document.getElementById('btn-start-quiz').addEventListener('click', handleStartQuiz);
-    document.getElementById('btn-resume-quiz').addEventListener('click', () => {
-        const activeQuiz = Storage.getActiveQuiz();
-        if (activeQuiz) startQuiz(activeQuiz);
-        else startQuiz();
+    // El pintado de preguntas avisa al flujo para persistir cada respuesta.
+    setAnswerChangeHandler(persistActiveQuiz);
+
+    byId(IDS.BTN_START_QUIZ).addEventListener('click', () => handleStartQuiz(QUESTION_BANK));
+    byId(IDS.BTN_RESUME_QUIZ).addEventListener('click', () => {
+        startQuiz(Storage.getActiveQuiz(), QUESTION_BANK);
     });
-    document.getElementById('btn-discard-quiz').addEventListener('click', () => {
-        showModal("Descartar examen", "¿Deseas borrar el cuestionario interrumpido?", () => {
+    byId(IDS.BTN_DISCARD_QUIZ).addEventListener('click', () => {
+        showModal('Descartar examen', '¿Deseas borrar el cuestionario interrumpido?', () => {
             Storage.clearActiveQuiz();
-            document.getElementById('recovery-banner').hidden = true;
+            byId(IDS.RECOVERY_BANNER).hidden = true;
             // Destino de foco tras confirmar (R10): la acción principal de la portada.
-            document.getElementById('btn-start-quiz').focus({ preventScroll: true });
+            byId(IDS.BTN_START_QUIZ).focus({ preventScroll: true });
         });
     });
 
-    document.getElementById('btn-prev-q').addEventListener('click', () => navigate(-1));
-
-    document.getElementById('btn-next-q').addEventListener('click', () => {
+    byId(IDS.BTN_PREV_Q).addEventListener('click', () => navigate(-1));
+    byId(IDS.BTN_NEXT_Q).addEventListener('click', () => {
         if (state.currentIndex < state.questions.length - 1) navigate(1);
         else finishQuiz();
     });
@@ -564,13 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
         event.returnValue = '';
     });
 
-    document.getElementById('btn-finish-quiz').addEventListener('click', finishQuiz);
-    document.getElementById('btn-restart-from-res').addEventListener('click', returnHome);
-    document.getElementById('btn-home-from-res').addEventListener('click', returnHome);
-    document.getElementById('btn-view-history').addEventListener('click', renderHistoryScreen);
-    document.getElementById('btn-back-home-history').addEventListener('click', returnHome);
-    document.getElementById('btn-clear-history').addEventListener('click', () => {
-        showModal("Borrar historial local", "¿Deseas borrar todo el historial de exámenes?", () => {
+    byId(IDS.BTN_FINISH_QUIZ).addEventListener('click', finishQuiz);
+    byId(IDS.BTN_RESTART_FROM_RES).addEventListener('click', returnHome);
+    byId(IDS.BTN_HOME_FROM_RES).addEventListener('click', returnHome);
+    byId(IDS.BTN_PRINT_RESULTS).addEventListener('click', () => window.print());
+    byId(IDS.BTN_VIEW_HISTORY).addEventListener('click', renderHistoryScreen);
+    byId(IDS.BTN_BACK_HOME_HISTORY).addEventListener('click', returnHome);
+    byId(IDS.BTN_CLEAR_HISTORY).addEventListener('click', () => {
+        showModal('Borrar historial local', '¿Deseas borrar todo el historial de exámenes?', () => {
             if (!Storage.clearHistory()) {
                 showStorageError(
                     'No se pudo borrar',
@@ -580,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             renderLastAttempt();
             // Destino de foco tras confirmar (R10): el botón que originó la acción.
-            document.getElementById('btn-clear-history').focus({ preventScroll: true });
+            byId(IDS.BTN_CLEAR_HISTORY).focus({ preventScroll: true });
         });
     });
 
